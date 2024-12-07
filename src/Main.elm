@@ -13,6 +13,7 @@ import HtmlHelpers as Html
 import Json.Decode as Decode
 import Keyboard.Event exposing (KeyboardEvent, decodeKeyboardEvent)
 import Keyboard.Key as Key
+import List.Extra as List
 import Random
 
 
@@ -24,16 +25,16 @@ type Model
 type alias PlayingModel =
     { badGuys : List Coord
     , protagonist : Coord
+    , tackled : Maybe Coord
     , footballDown : FootballDown
     , startingYard : Int
     , setStartingYard : Int
+    , nextSeed : Random.Seed
     }
 
 
 type alias ReadyModel =
-    { footballDown : FootballDown
-    , currentYard : Int
-    , setStartingYard : Int
+    { nextSeed : Random.Seed
     }
 
 
@@ -97,26 +98,59 @@ startDown model =
     case model of
         Ready readyModel ->
             let
-                protagonist =
-                    { x = 3, y = readyModel.currentYard }
+                startingYard =
+                    20
 
-                ( badGuys, _ ) =
+                protagonist =
+                    { x = 3, y = startingYard }
+
+                ( badGuys, nextSeed ) =
                     Random.step
                         (Random.list 200 (badGuyGenerator protagonist))
-                        (Random.initialSeed 0)
+                        readyModel.nextSeed
             in
             ( Playing
                 { badGuys = badGuys
                 , protagonist = protagonist
-                , footballDown = readyModel.footballDown
-                , startingYard = readyModel.currentYard
-                , setStartingYard = readyModel.setStartingYard
+                , tackled = Nothing
+                , footballDown = FootballDown.first
+                , startingYard = startingYard
+                , setStartingYard = startingYard
+                , nextSeed = nextSeed
                 }
             , Cmd.none
             )
 
-        Playing _ ->
-            ( model, Cmd.none )
+        Playing playingModel ->
+            case FootballDown.next playingModel.footballDown of
+                Just nextDown ->
+                    let
+                        startingYard =
+                            playingModel.protagonist.y
+
+                        protagonist =
+                            { x = 3, y = startingYard }
+
+                        ( badGuys, nextSeed ) =
+                            Random.step
+                                (Random.list 200 (badGuyGenerator protagonist))
+                                playingModel.nextSeed
+                    in
+                    ( Playing
+                        { badGuys = badGuys
+                        , protagonist = protagonist
+                        , tackled = Nothing
+                        , footballDown = nextDown
+                        , startingYard = startingYard
+                        , setStartingYard = playingModel.setStartingYard
+                        , nextSeed = nextSeed
+                        }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    -- Shouldn't happen
+                    ( model, Cmd.none )
 
 
 handleProtagonistMove : (Coord -> Coord) -> Model -> ( Model, Cmd Msg )
@@ -131,15 +165,31 @@ handleProtagonistMove moveFn model =
     in
     case model of
         Playing playingModel ->
-            ( Playing
-                { playingModel
-                    | protagonist =
-                        playingModel.protagonist
-                            |> moveFn
-                            |> Coord.constrain constraint
-                }
-            , Cmd.none
-            )
+            case playingModel.tackled of
+                Nothing ->
+                    let
+                        spotToMoveTo =
+                            playingModel.protagonist
+                                |> moveFn
+                                |> Coord.constrain constraint
+
+                        currentlyInSpot =
+                            List.find ((==) spotToMoveTo) playingModel.badGuys
+                    in
+                    case currentlyInSpot of
+                        Just badGuy ->
+                            ( Playing { playingModel | tackled = Just badGuy }
+                            , Cmd.none
+                            )
+
+                        Nothing ->
+                            ( Playing { playingModel | protagonist = spotToMoveTo }
+                            , Cmd.none
+                            )
+
+                Just _ ->
+                    -- Can't move if you're tackled!!
+                    ( model, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -154,9 +204,7 @@ badGuyGenerator protagonistYardLine =
 init : ( Model, Cmd Msg )
 init =
     ( Ready
-        { footballDown = FootballDown.first
-        , currentYard = 20
-        , setStartingYard = 20
+        { nextSeed = Random.initialSeed 0
         }
     , Cmd.none
     )
@@ -185,14 +233,13 @@ viewReadyModel readyModel =
     Html.flexRow
         [ css [ justifyContent center ] ]
         [ Html.flexColumn [ css [ Html.gap 24 ] ]
-            [ Html.text <| FootballDown.toString readyModel.footballDown
-            , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+            [ Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
             ]
         ]
 
 
 viewPlayingModel : PlayingModel -> Html Msg
-viewPlayingModel { protagonist, badGuys } =
+viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard, footballDown } =
     let
         rowsToShow =
             List.range
@@ -231,10 +278,26 @@ viewPlayingModel { protagonist, badGuys } =
 
                 art =
                     if isProtagonist then
-                        "P"
+                        case tackled of
+                            Nothing ->
+                                "P"
+
+                            Just badGuy ->
+                                "X"
 
                     else if isBadGuy then
-                        "X"
+                        case tackled of
+                            Nothing ->
+                                "H"
+
+                            Just badGuy ->
+                                if badGuy == coord then
+                                    -- Don't show the tackler, in their original square
+                                    -- because they've jumped over
+                                    ""
+
+                                else
+                                    "H"
 
                     else
                         ""
@@ -253,14 +316,36 @@ viewPlayingModel { protagonist, badGuys } =
 
                       else
                         batch []
+                    , if coord.y == setStartingYard + 10 then
+                        borderBottom3 (px 2) solid (rgb 220 220 100)
+
+                      else
+                        batch []
                     ]
                 ]
                 [ Html.text art ]
     in
-    Html.flexRow [ css [ justifyContent center, alignItems center ] ]
-        [ Html.flexColumn
-            []
-            (List.map viewRow rowsToShow)
+    Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
+        [ Html.flexRow [ css [ justifyContent center, alignItems center ] ]
+            [ Html.flexColumn
+                []
+                (List.map viewRow rowsToShow)
+            ]
+        , case tackled of
+            Just _ ->
+                Html.flexColumn []
+                    [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
+                    , case FootballDown.next footballDown of
+                        Just next ->
+                            Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString next ]
+
+                        Nothing ->
+                            Html.text ""
+                    , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                    ]
+
+            Nothing ->
+                Html.text ""
         ]
 
 
