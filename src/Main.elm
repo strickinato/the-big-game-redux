@@ -14,7 +14,9 @@ import Json.Decode as Decode
 import Keyboard.Event exposing (KeyboardEvent, decodeKeyboardEvent)
 import Keyboard.Key as Key
 import List.Extra as List
+import Maybe.Extra as Maybe
 import Random
+import Time
 
 
 type Model
@@ -30,6 +32,7 @@ type alias PlayingModel =
     , startingYard : Int
     , setStartingYard : Int
     , nextSeed : Random.Seed
+    , lastBadGuyMove : Maybe Time.Posix
     }
 
 
@@ -42,6 +45,7 @@ type Msg
     = NoOp
     | HandleKeyboardEvent KeyboardEvent
     | StartDown
+    | Tick Time.Posix
 
 
 main : Program () Model Msg
@@ -87,14 +91,83 @@ update msg model =
                     ( model, Cmd.none )
 
         StartDown ->
-            startDown model
+            handleStartDown model
+
+        Tick posix ->
+            handleTick posix model
 
         NoOp ->
             ( model, Cmd.none )
 
 
-startDown : Model -> ( Model, Cmd Msg )
-startDown model =
+handleTick : Time.Posix -> Model -> ( Model, Cmd Msg )
+handleTick time model =
+    case model of
+        Playing playingModel ->
+            let
+                notTackled =
+                    Maybe.isNothing playingModel.tackled
+
+                isTime =
+                    playingModel.lastBadGuyMove
+                        |> Maybe.map (\lastMove -> Time.posixToMillis time - Time.posixToMillis lastMove > 200)
+                        |> Maybe.withDefault False
+            in
+            case ( playingModel.tackled, playingModel.lastBadGuyMove ) of
+                ( Just _, _ ) ->
+                    -- If tackled, do nothing
+                    ( model, Cmd.none )
+
+                ( Nothing, Nothing ) ->
+                    -- If time not set, it's the first tick so set it
+                    ( Playing { playingModel | lastBadGuyMove = Just time }, Cmd.none )
+
+                ( Nothing, Just lastMove ) ->
+                    -- If time not set, it's the first tick so set it
+                    if
+                        (Time.posixToMillis time - Time.posixToMillis lastMove)
+                            > 500
+                    then
+                        let
+                            newBadGuyPositions =
+                                -- TODO this shouldn't just be blitzing!
+                                playingModel.badGuys
+                                    |> List.map Coord.moveDown
+
+                            currentlyInSpot =
+                                List.find ((==) playingModel.protagonist) newBadGuyPositions
+                        in
+                        case currentlyInSpot of
+                            Just badGuy ->
+                                ( Playing
+                                    { playingModel
+                                        | tackled = Just badGuy
+                                        , badGuys = newBadGuyPositions
+                                    }
+                                , Cmd.none
+                                )
+
+                            Nothing ->
+                                ( Playing
+                                    { playingModel
+                                        | badGuys = newBadGuyPositions
+                                        , lastBadGuyMove = Just time
+                                    }
+                                , Cmd.none
+                                )
+
+                    else
+                        ( model, Cmd.none )
+
+        -- if isTime && notTackled then
+        -- else if notTackled then
+        --     ( model, Cmd.none )
+        _ ->
+            ( model, Cmd.none )
+
+
+handleStartDown : Model -> ( Model, Cmd Msg )
+handleStartDown model =
     case model of
         Ready readyModel ->
             let
@@ -117,6 +190,7 @@ startDown model =
                 , startingYard = startingYard
                 , setStartingYard = startingYard
                 , nextSeed = nextSeed
+                , lastBadGuyMove = Nothing
                 }
             , Cmd.none
             )
@@ -144,6 +218,7 @@ startDown model =
                         , startingYard = startingYard
                         , setStartingYard = playingModel.setStartingYard
                         , nextSeed = nextSeed
+                        , lastBadGuyMove = Nothing
                         }
                     , Cmd.none
                     )
@@ -259,7 +334,7 @@ viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard,
                                 , width (px 24)
                                 ]
                             ]
-                            [ if modBy 10 y == 0 then
+                            [ if modBy 5 y == 0 then
                                 Html.text (String.fromInt y)
 
                               else
@@ -356,5 +431,13 @@ viewDebug model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Browser.Events.onKeyDown <|
-        Decode.map HandleKeyboardEvent decodeKeyboardEvent
+    case model of
+        Playing _ ->
+            Sub.batch
+                [ Browser.Events.onKeyDown <|
+                    Decode.map HandleKeyboardEvent decodeKeyboardEvent
+                , Browser.Events.onAnimationFrame Tick
+                ]
+
+        _ ->
+            Sub.none
