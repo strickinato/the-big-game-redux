@@ -214,19 +214,27 @@ handleStartDown model =
                                 protagonist
                                 bounds
                                 playingModel.nextSeed
+
+                        gotFirstDown =
+                            startingYard > playingModel.setStartingYard + 10
                     in
                     ( Playing
                         { badGuys = badGuys
                         , protagonist = protagonist
                         , tackled = Nothing
                         , footballDown =
-                            if startingYard > playingModel.setStartingYard + 10 then
+                            if gotFirstDown then
                                 FootballDown.first
 
                             else
                                 nextDown
                         , startingYard = startingYard
-                        , setStartingYard = playingModel.setStartingYard
+                        , setStartingYard =
+                            if gotFirstDown then
+                                startingYard
+
+                            else
+                                playingModel.setStartingYard
                         , nextSeed = nextSeed
                         , lastBadGuyMove = Nothing
                         }
@@ -415,6 +423,7 @@ viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard,
                 Html.flexColumn []
                     [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
                     , case FootballDown.next footballDown of
+                        -- TODO need to handle first down better
                         Just next ->
                             Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString next ]
 

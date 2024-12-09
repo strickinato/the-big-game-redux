@@ -6939,31 +6939,46 @@ var $author$project$Coord$constrain = F2(
 			y: A3($elm$core$Basics$clamp, yMin, yMax, y)
 		};
 	});
-var $elm$core$Dict$member = F2(
-	function (key, dict) {
-		var _v0 = A2($elm$core$Dict$get, key, dict);
-		if (_v0.$ === 'Just') {
-			return true;
+var $author$project$Coord$make = F2(
+	function (x, y) {
+		return {x: x, y: y};
+	});
+var $author$project$Coord$fromComparable = function (_v0) {
+	var x = _v0.a;
+	var y = _v0.b;
+	return A2($author$project$Coord$make, x, y);
+};
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
 		} else {
-			return false;
+			return $elm$core$Maybe$Nothing;
 		}
 	});
-var $elm$core$Set$member = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return A2($elm$core$Dict$member, key, dict);
-	});
-var $author$project$BadGuys$member = F2(
+var $author$project$Coord$toComparable = function (_v0) {
+	var x = _v0.x;
+	var y = _v0.y;
+	return _Utils_Tuple2(x, y);
+};
+var $author$project$BadGuys$currentBadGuy = F2(
 	function (coord, _v0) {
 		var badGuys = _v0.a;
 		return A2(
-			$elm$core$Set$member,
-			_Utils_Tuple2(coord.x, coord.y),
-			badGuys);
-	});
-var $author$project$BadGuys$currentBadGuy = F2(
-	function (coord, badGuys) {
-		return A2($author$project$BadGuys$member, coord, badGuys) ? $elm$core$Maybe$Just(coord) : $elm$core$Maybe$Nothing;
+			$elm$core$Maybe$map,
+			function (_v1) {
+				var previousSpot = _v1.previousSpot;
+				return {
+					coord: coord,
+					previousCoord: $author$project$Coord$fromComparable(previousSpot)
+				};
+			},
+			A2(
+				$elm$core$Dict$get,
+				$author$project$Coord$toComparable(coord),
+				badGuys));
 	});
 var $author$project$Main$handleProtagonistMove = F2(
 	function (moveFn, model) {
@@ -7005,19 +7020,6 @@ var $author$project$FootballDown$FirstDown = {$: 'FirstDown'};
 var $author$project$FootballDown$first = $author$project$FootballDown$FirstDown;
 var $author$project$BadGuys$BadGuys = function (a) {
 	return {$: 'BadGuys', a: a};
-};
-var $elm$core$Set$Set_elm_builtin = function (a) {
-	return {$: 'Set_elm_builtin', a: a};
-};
-var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
-var $elm$core$Set$insert = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return $elm$core$Set$Set_elm_builtin(
-			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
-	});
-var $elm$core$Set$fromList = function (list) {
-	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
 };
 var $elm$random$Random$Generator = function (a) {
 	return {$: 'Generator', a: a};
@@ -7145,11 +7147,19 @@ var $author$project$BadGuys$generate = F3(
 				$author$project$BadGuys$BadGuys,
 				A2(
 					$elm$random$Random$map,
-					$elm$core$Set$fromList,
+					$elm$core$Dict$fromList,
 					A2(
-						$elm$random$Random$list,
-						$author$project$BadGuys$numBadGuys,
-						$author$project$BadGuys$generator(protagonistCoord)))),
+						$elm$random$Random$map,
+						$elm$core$List$map(
+							function (c) {
+								return _Utils_Tuple2(
+									c,
+									{previousSpot: c});
+							}),
+						A2(
+							$elm$random$Random$list,
+							$author$project$BadGuys$numBadGuys,
+							$author$project$BadGuys$generator(protagonistCoord))))),
 			seed);
 	});
 var $author$project$FootballDown$FourthDown = {$: 'FourthDown'};
@@ -7186,6 +7196,7 @@ var $author$project$Main$handleStartDown = function (model) {
 			var nextDown = _v2.a;
 			var startingYard = playingModel.protagonist.y;
 			var protagonist = {x: 3, y: startingYard};
+			var gotFirstDown = _Utils_cmp(startingYard, playingModel.setStartingYard + 10) > 0;
 			var _v3 = A3($author$project$BadGuys$generate, protagonist, $author$project$Main$bounds, playingModel.nextSeed);
 			var badGuys = _v3.a;
 			var nextSeed = _v3.b;
@@ -7193,11 +7204,11 @@ var $author$project$Main$handleStartDown = function (model) {
 				$author$project$Main$Playing(
 					{
 						badGuys: badGuys,
-						footballDown: (_Utils_cmp(startingYard, playingModel.setStartingYard + 10) > 0) ? $author$project$FootballDown$first : nextDown,
+						footballDown: gotFirstDown ? $author$project$FootballDown$first : nextDown,
 						lastBadGuyMove: $elm$core$Maybe$Nothing,
 						nextSeed: nextSeed,
 						protagonist: protagonist,
-						setStartingYard: playingModel.setStartingYard,
+						setStartingYard: gotFirstDown ? startingYard : playingModel.setStartingYard,
 						startingYard: startingYard,
 						tackled: $elm$core$Maybe$Nothing
 					}),
@@ -7214,32 +7225,10 @@ var $elm_community$maybe_extra$Maybe$Extra$isNothing = function (m) {
 		return false;
 	}
 };
-var $elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return $elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
 var $elm$time$Time$posixToMillis = function (_v0) {
 	var millis = _v0.a;
 	return millis;
 };
-var $elm$core$Set$foldl = F3(
-	function (func, initialState, _v0) {
-		var dict = _v0.a;
-		return A3(
-			$elm$core$Dict$foldl,
-			F3(
-				function (key, _v1, state) {
-					return A2(func, key, state);
-				}),
-			initialState,
-			dict);
-	});
 var $elm$core$List$drop = F2(
 	function (n, list) {
 		drop:
@@ -7275,11 +7264,6 @@ var $elm_community$list_extra$List$Extra$getAt = F2(
 		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
 			A2($elm$core$List$drop, idx, xs));
 	});
-var $author$project$Coord$toComparable = function (_v0) {
-	var x = _v0.x;
-	var y = _v0.y;
-	return _Utils_Tuple2(x, y);
-};
 var $elm$core$List$filter = F2(
 	function (isGood, list) {
 		return A3(
@@ -7290,6 +7274,23 @@ var $elm$core$List$filter = F2(
 				}),
 			_List_Nil,
 			list);
+	});
+var $elm$core$Dict$member = F2(
+	function (key, dict) {
+		var _v0 = A2($elm$core$Dict$get, key, dict);
+		if (_v0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
+var $author$project$BadGuys$member = F2(
+	function (coord, _v0) {
+		var badGuys = _v0.a;
+		return A2(
+			$elm$core$Dict$member,
+			_Utils_Tuple2(coord.x, coord.y),
+			badGuys);
 	});
 var $author$project$Coord$moveDown = function (coord) {
 	return _Utils_update(
@@ -7343,9 +7344,9 @@ var $author$project$BadGuys$step = F3(
 	function (seed, bounds, _v0) {
 		var badGuys = _v0.a;
 		var _v1 = A3(
-			$elm$core$Set$foldl,
-			F2(
-				function (_v2, acc) {
+			$elm$core$Dict$foldl,
+			F3(
+				function (_v2, _v3, acc) {
 					var x = _v2.a;
 					var y = _v2.b;
 					var validMoves = A3(
@@ -7353,15 +7354,15 @@ var $author$project$BadGuys$step = F3(
 						bounds,
 						{x: x, y: y},
 						$author$project$BadGuys$BadGuys(acc.newBadGuys));
-					var _v3 = A2(
+					var _v4 = A2(
 						$elm$random$Random$step,
 						A2(
 							$elm$random$Random$int,
 							0,
 							$elm$core$List$length(validMoves) - 1),
 						acc.newSeed);
-					var randomSpot = _v3.a;
-					var steppedSeed = _v3.b;
+					var randomSpot = _v4.a;
+					var steppedSeed = _v4.b;
 					var newCoord = A2(
 						$elm$core$Maybe$withDefault,
 						_Utils_Tuple2(x, y),
@@ -7370,11 +7371,17 @@ var $author$project$BadGuys$step = F3(
 							$author$project$Coord$toComparable,
 							A2($elm_community$list_extra$List$Extra$getAt, randomSpot, validMoves)));
 					return {
-						newBadGuys: A2($elm$core$Set$insert, newCoord, acc.newBadGuys),
+						newBadGuys: A3(
+							$elm$core$Dict$insert,
+							newCoord,
+							{
+								previousSpot: _Utils_Tuple2(x, y)
+							},
+							acc.newBadGuys),
 						newSeed: steppedSeed
 					};
 				}),
-			{newBadGuys: $elm$core$Set$empty, newSeed: seed},
+			{newBadGuys: $elm$core$Dict$empty, newSeed: seed},
 			badGuys);
 		var newBadGuys = _v1.newBadGuys;
 		var newSeed = _v1.newSeed;
@@ -9201,10 +9208,6 @@ var $rtfeldman$elm_css$Css$justifyContent = function (fn) {
 		'justify-content',
 		fn($rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty));
 };
-var $author$project$Coord$make = F2(
-	function (x, y) {
-		return {x: x, y: y};
-	});
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
 };
@@ -9331,24 +9334,11 @@ var $author$project$Main$viewPlayingModel = function (_v0) {
 		var isProtagonist = _Utils_eq(coord, protagonist);
 		var isBadGuy = A2($author$project$BadGuys$member, coord, badGuys);
 		var art = function () {
-			if (isProtagonist) {
-				if (tackled.$ === 'Nothing') {
-					return 'P';
-				} else {
-					var badGuy = tackled.a;
-					return 'X';
-				}
+			if (tackled.$ === 'Nothing') {
+				return isProtagonist ? 'P' : (isBadGuy ? 'H' : '');
 			} else {
-				if (isBadGuy) {
-					if (tackled.$ === 'Nothing') {
-						return 'H';
-					} else {
-						var badGuy = tackled.a;
-						return _Utils_eq(badGuy, coord) ? '-' : 'H';
-					}
-				} else {
-					return '';
-				}
+				var tackler = tackled.a;
+				return _Utils_eq(tackler.previousCoord, coord) ? '-' : (_Utils_eq(tackler.coord, coord) ? 'X' : (isBadGuy ? 'H' : ''));
 			}
 		}();
 		return A2(
