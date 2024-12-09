@@ -1,5 +1,7 @@
 module Main exposing (..)
 
+import BadGuys exposing (BadGuys)
+import Bounds exposing (Bounds)
 import Browser
 import Browser.Events
 import Coord exposing (Coord)
@@ -25,7 +27,7 @@ type Model
 
 
 type alias PlayingModel =
-    { badGuys : List Coord
+    { badGuys : BadGuys
     , protagonist : Coord
     , tackled : Maybe Coord
     , footballDown : FootballDown
@@ -129,13 +131,12 @@ handleTick time model =
                             > 500
                     then
                         let
-                            newBadGuyPositions =
-                                -- TODO this shouldn't just be blitzing!
+                            ( newBadGuyPositions, nextSeed ) =
                                 playingModel.badGuys
-                                    |> List.map Coord.moveDown
+                                    |> BadGuys.step playingModel.nextSeed bounds
 
                             currentlyInSpot =
-                                List.find ((==) playingModel.protagonist) newBadGuyPositions
+                                BadGuys.currentBadGuy playingModel.protagonist newBadGuyPositions
                         in
                         case currentlyInSpot of
                             Just badGuy ->
@@ -143,6 +144,7 @@ handleTick time model =
                                     { playingModel
                                         | tackled = Just badGuy
                                         , badGuys = newBadGuyPositions
+                                        , nextSeed = nextSeed
                                     }
                                 , Cmd.none
                                 )
@@ -152,6 +154,7 @@ handleTick time model =
                                     { playingModel
                                         | badGuys = newBadGuyPositions
                                         , lastBadGuyMove = Just time
+                                        , nextSeed = nextSeed
                                     }
                                 , Cmd.none
                                 )
@@ -178,8 +181,9 @@ handleStartDown model =
                     { x = 3, y = startingYard }
 
                 ( badGuys, nextSeed ) =
-                    Random.step
-                        (Random.list 200 (badGuyGenerator protagonist))
+                    BadGuys.generate
+                        protagonist
+                        bounds
                         readyModel.nextSeed
             in
             ( Playing
@@ -206,15 +210,21 @@ handleStartDown model =
                             { x = 3, y = startingYard }
 
                         ( badGuys, nextSeed ) =
-                            Random.step
-                                (Random.list 200 (badGuyGenerator protagonist))
+                            BadGuys.generate
+                                protagonist
+                                bounds
                                 playingModel.nextSeed
                     in
                     ( Playing
                         { badGuys = badGuys
                         , protagonist = protagonist
                         , tackled = Nothing
-                        , footballDown = nextDown
+                        , footballDown =
+                            if startingYard > playingModel.setStartingYard + 10 then
+                                FootballDown.first
+
+                            else
+                                nextDown
                         , startingYard = startingYard
                         , setStartingYard = playingModel.setStartingYard
                         , nextSeed = nextSeed
@@ -230,14 +240,6 @@ handleStartDown model =
 
 handleProtagonistMove : (Coord -> Coord) -> Model -> ( Model, Cmd Msg )
 handleProtagonistMove moveFn model =
-    let
-        constraint =
-            { xMin = 0
-            , xMax = 6
-            , yMin = 0
-            , yMax = 99
-            }
-    in
     case model of
         Playing playingModel ->
             case playingModel.tackled of
@@ -246,10 +248,10 @@ handleProtagonistMove moveFn model =
                         spotToMoveTo =
                             playingModel.protagonist
                                 |> moveFn
-                                |> Coord.constrain constraint
+                                |> Coord.constrain bounds
 
                         currentlyInSpot =
-                            List.find ((==) spotToMoveTo) playingModel.badGuys
+                            BadGuys.currentBadGuy playingModel.protagonist playingModel.badGuys
                     in
                     case currentlyInSpot of
                         Just badGuy ->
@@ -268,12 +270,6 @@ handleProtagonistMove moveFn model =
 
         _ ->
             ( model, Cmd.none )
-
-
-badGuyGenerator : Coord -> Random.Generator Coord
-badGuyGenerator protagonistYardLine =
-    -- TODO goal line stands
-    Random.map2 Coord.make (Random.int 0 6) (Random.int (protagonistYardLine.y + 2) 99)
 
 
 init : ( Model, Cmd Msg )
@@ -301,6 +297,15 @@ view model =
 grid : ( List Int, List Int )
 grid =
     ( List.range 0 6, List.range 0 100 |> List.reverse )
+
+
+bounds : Bounds
+bounds =
+    { xMin = 0
+    , xMax = 6
+    , yMin = 0
+    , yMax = 99
+    }
 
 
 viewReadyModel : ReadyModel -> Html Msg
@@ -349,7 +354,7 @@ viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard,
                     coord == protagonist
 
                 isBadGuy =
-                    List.member coord badGuys
+                    BadGuys.member coord badGuys
 
                 art =
                     if isProtagonist then
@@ -369,7 +374,7 @@ viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard,
                                 if badGuy == coord then
                                     -- Don't show the tackler, in their original square
                                     -- because they've jumped over
-                                    ""
+                                    "-"
 
                                 else
                                     "H"

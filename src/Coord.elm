@@ -1,15 +1,11 @@
 module Coord exposing (..)
 
+import Bounds exposing (Bounds)
+
 
 type alias Coord =
-    { x : Int, y : Int }
-
-
-type alias Constraint =
-    { xMin : Int
-    , yMin : Int
-    , xMax : Int
-    , yMax : Int
+    { x : Int
+    , y : Int
     }
 
 
@@ -38,8 +34,13 @@ moveRight coord =
     { coord | x = coord.x + 1 }
 
 
-constrain : Constraint -> Coord -> Coord
+constrain : Bounds -> Coord -> Coord
 constrain { xMin, yMin, xMax, yMax } { x, y } =
     { x = clamp xMin xMax x
     , y = clamp yMin yMax y
     }
+
+
+toComparable : Coord -> ( Int, Int )
+toComparable { x, y } =
+    ( x, y )
