@@ -2,13 +2,13 @@ module BadGuys exposing (BadGuys, currentBadGuy, generate, member, step)
 
 import Bounds exposing (Bounds)
 import Coord exposing (Coord)
+import Dict exposing (Dict)
 import List.Extra as List
 import Random
-import Set exposing (Set)
 
 
 type BadGuys
-    = BadGuys (Set ( Int, Int ))
+    = BadGuys (Dict ( Int, Int ) { previousSpot : ( Int, Int ) })
 
 
 numBadGuys =
@@ -19,7 +19,8 @@ generate : Coord -> Bounds -> Random.Seed -> ( BadGuys, Random.Seed )
 generate protagonistCoord bounds seed =
     Random.step
         (Random.list numBadGuys (generator protagonistCoord)
-            |> Random.map Set.fromList
+            |> Random.map (List.map (\c -> ( c, { previousSpot = c } )))
+            |> Random.map Dict.fromList
             |> Random.map BadGuys
         )
         seed
@@ -35,8 +36,8 @@ step : Random.Seed -> Bounds -> BadGuys -> ( BadGuys, Random.Seed )
 step seed bounds (BadGuys badGuys) =
     let
         { newBadGuys, newSeed } =
-            Set.foldl
-                (\( x, y ) acc ->
+            Dict.foldl
+                (\( x, y ) _ acc ->
                     let
                         validMoves =
                             validMovesForBadGuy
@@ -54,10 +55,10 @@ step seed bounds (BadGuys badGuys) =
                                 |> Maybe.withDefault ( x, y )
                     in
                     { newSeed = steppedSeed
-                    , newBadGuys = Set.insert newCoord acc.newBadGuys
+                    , newBadGuys = Dict.insert newCoord { previousSpot = ( x, y ) } acc.newBadGuys
                     }
                 )
-                { newSeed = seed, newBadGuys = Set.empty }
+                { newSeed = seed, newBadGuys = Dict.empty }
                 badGuys
     in
     ( newBadGuys |> BadGuys
@@ -74,13 +75,15 @@ validMovesForBadGuy bounds coord badGuys =
 
 member : Coord -> BadGuys -> Bool
 member coord (BadGuys badGuys) =
-    Set.member ( coord.x, coord.y ) badGuys
+    Dict.member ( coord.x, coord.y ) badGuys
 
 
-currentBadGuy : Coord -> BadGuys -> Maybe Coord
-currentBadGuy coord badGuys =
-    if member coord badGuys then
-        Just coord
-
-    else
-        Nothing
+currentBadGuy : Coord -> BadGuys -> Maybe { coord : Coord, previousCoord : Coord }
+currentBadGuy coord (BadGuys badGuys) =
+    Dict.get (Coord.toComparable coord) badGuys
+        |> Maybe.map
+            (\{ previousSpot } ->
+                { coord = coord
+                , previousCoord = Coord.fromComparable previousSpot
+                }
+            )

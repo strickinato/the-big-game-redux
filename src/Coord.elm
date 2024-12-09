@@ -44,3 +44,8 @@ constrain { xMin, yMin, xMax, yMax } { x, y } =
 toComparable : Coord -> ( Int, Int )
 toComparable { x, y } =
     ( x, y )
+
+
+fromComparable : ( Int, Int ) -> Coord
+fromComparable ( x, y ) =
+    make x y

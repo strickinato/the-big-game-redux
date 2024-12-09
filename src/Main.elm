@@ -29,7 +29,7 @@ type Model
 type alias PlayingModel =
     { badGuys : BadGuys
     , protagonist : Coord
-    , tackled : Maybe Coord
+    , tackled : Maybe { coord : Coord, previousCoord : Coord }
     , footballDown : FootballDown
     , startingYard : Int
     , setStartingYard : Int
@@ -357,30 +357,29 @@ viewPlayingModel { protagonist, badGuys, tackled, setStartingYard, startingYard,
                     BadGuys.member coord badGuys
 
                 art =
-                    if isProtagonist then
-                        case tackled of
-                            Nothing ->
+                    case tackled of
+                        Nothing ->
+                            if isProtagonist then
                                 "P"
 
-                            Just badGuy ->
-                                "X"
-
-                    else if isBadGuy then
-                        case tackled of
-                            Nothing ->
+                            else if isBadGuy then
                                 "H"
 
-                            Just badGuy ->
-                                if badGuy == coord then
-                                    -- Don't show the tackler, in their original square
-                                    -- because they've jumped over
-                                    "-"
+                            else
+                                ""
 
-                                else
-                                    "H"
+                        Just tackler ->
+                            if tackler.previousCoord == coord then
+                                "-"
 
-                    else
-                        ""
+                            else if tackler.coord == coord then
+                                "X"
+
+                            else if isBadGuy then
+                                "H"
+
+                            else
+                                ""
             in
             Html.div
                 [ css
