@@ -32,8 +32,8 @@ generator protagonistCoord =
     Random.map2 Tuple.pair (Random.int 0 6) (Random.int (protagonistCoord.y + 2) 99)
 
 
-step : Random.Seed -> Bounds -> BadGuys -> ( BadGuys, Random.Seed )
-step seed bounds (BadGuys badGuys) =
+step : Random.Seed -> Bounds -> Coord -> BadGuys -> ( BadGuys, Random.Seed )
+step seed bounds protagonist (BadGuys badGuys) =
     let
         { newBadGuys, newSeed } =
             Dict.foldl
@@ -42,6 +42,7 @@ step seed bounds (BadGuys badGuys) =
                         validMoves =
                             validMovesForBadGuy
                                 bounds
+                                protagonist
                                 { x = x, y = y }
                                 (BadGuys acc.newBadGuys)
 
@@ -66,11 +67,11 @@ step seed bounds (BadGuys badGuys) =
     )
 
 
-validMovesForBadGuy : Bounds -> Coord -> BadGuys -> List Coord
-validMovesForBadGuy bounds coord badGuys =
+validMovesForBadGuy : Bounds -> Coord -> Coord -> BadGuys -> List Coord
+validMovesForBadGuy bounds protagonist testCoord badGuys =
     [ Coord.moveUp, Coord.moveDown, Coord.moveLeft, Coord.moveRight ]
-        |> List.map (\fn -> fn coord |> Coord.constrain bounds)
-        |> List.filter (\c -> not (member c badGuys))
+        |> List.map (\fn -> fn testCoord |> Coord.constrain bounds)
+        |> List.filter (\c -> not (member c badGuys) && c /= protagonist)
 
 
 member : Coord -> BadGuys -> Bool

@@ -5585,8 +5585,8 @@ var $Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent = A8(
 	A2($elm$json$Json$Decode$field, 'repeat', $elm$json$Json$Decode$bool),
 	A2($elm$json$Json$Decode$field, 'shiftKey', $elm$json$Json$Decode$bool));
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $elm$browser$Browser$AnimationManager$Time = function (a) {
-	return {$: 'Time', a: a};
+var $elm$browser$Browser$AnimationManager$Delta = function (a) {
+	return {$: 'Delta', a: a};
 };
 var $elm$browser$Browser$AnimationManager$State = F3(
 	function (subs, request, oldTime) {
@@ -5692,8 +5692,8 @@ var $elm$browser$Browser$AnimationManager$onSelfMsg = F3(
 					$elm$core$Platform$sendToSelf(router),
 					$elm$browser$Browser$AnimationManager$rAF)));
 	});
-var $elm$browser$Browser$AnimationManager$Delta = function (a) {
-	return {$: 'Delta', a: a};
+var $elm$browser$Browser$AnimationManager$Time = function (a) {
+	return {$: 'Time', a: a};
 };
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
@@ -5714,11 +5714,11 @@ var $elm$browser$Browser$AnimationManager$subMap = F2(
 	});
 _Platform_effectManagers['Browser.AnimationManager'] = _Platform_createManager($elm$browser$Browser$AnimationManager$init, $elm$browser$Browser$AnimationManager$onEffects, $elm$browser$Browser$AnimationManager$onSelfMsg, 0, $elm$browser$Browser$AnimationManager$subMap);
 var $elm$browser$Browser$AnimationManager$subscription = _Platform_leaf('Browser.AnimationManager');
-var $elm$browser$Browser$AnimationManager$onAnimationFrame = function (tagger) {
+var $elm$browser$Browser$AnimationManager$onAnimationFrameDelta = function (tagger) {
 	return $elm$browser$Browser$AnimationManager$subscription(
-		$elm$browser$Browser$AnimationManager$Time(tagger));
+		$elm$browser$Browser$AnimationManager$Delta(tagger));
 };
-var $elm$browser$Browser$Events$onAnimationFrame = $elm$browser$Browser$AnimationManager$onAnimationFrame;
+var $elm$browser$Browser$Events$onAnimationFrameDelta = $elm$browser$Browser$AnimationManager$onAnimationFrameDelta;
 var $elm$browser$Browser$Events$Document = {$: 'Document'};
 var $elm$browser$Browser$Events$MySub = F3(
 	function (a, b, c) {
@@ -6125,7 +6125,7 @@ var $author$project$Main$subscriptions = function (model) {
 				[
 					$elm$browser$Browser$Events$onKeyDown(
 					A2($elm$json$Json$Decode$map, $author$project$Main$HandleKeyboardEvent, $Gizra$elm_keyboard_event$Keyboard$Event$decodeKeyboardEvent)),
-					$elm$browser$Browser$Events$onAnimationFrame($author$project$Main$Tick)
+					$elm$browser$Browser$Events$onAnimationFrameDelta($author$project$Main$Tick)
 				]));
 	} else {
 		return $elm$core$Platform$Sub$none;
@@ -6990,16 +6990,10 @@ var $author$project$Main$handleProtagonistMove = F2(
 					$author$project$Coord$constrain,
 					$author$project$Main$bounds,
 					moveFn(playingModel.protagonist));
-				var currentlyInSpot = A2($author$project$BadGuys$currentBadGuy, playingModel.protagonist, playingModel.badGuys);
+				var currentlyInSpot = A2($author$project$BadGuys$currentBadGuy, spotToMoveTo, playingModel.badGuys);
 				if (currentlyInSpot.$ === 'Just') {
-					var badGuy = currentlyInSpot.a;
 					return _Utils_Tuple2(
-						$author$project$Main$Playing(
-							_Utils_update(
-								playingModel,
-								{
-									tackled: $elm$core$Maybe$Just(badGuy)
-								})),
+						$author$project$Main$Playing(playingModel),
 						$elm$core$Platform$Cmd$none);
 				} else {
 					return _Utils_Tuple2(
@@ -7162,108 +7156,46 @@ var $author$project$BadGuys$generate = F3(
 							$author$project$BadGuys$generator(protagonistCoord))))),
 			seed);
 	});
-var $author$project$FootballDown$FourthDown = {$: 'FourthDown'};
-var $author$project$FootballDown$SecondDown = {$: 'SecondDown'};
-var $author$project$FootballDown$ThirdDown = {$: 'ThirdDown'};
-var $author$project$FootballDown$next = function (footballDown) {
-	switch (footballDown.$) {
-		case 'FirstDown':
-			return $elm$core$Maybe$Just($author$project$FootballDown$SecondDown);
-		case 'SecondDown':
-			return $elm$core$Maybe$Just($author$project$FootballDown$ThirdDown);
-		case 'ThirdDown':
-			return $elm$core$Maybe$Just($author$project$FootballDown$FourthDown);
-		default:
-			return $elm$core$Maybe$Nothing;
-	}
-};
 var $author$project$Main$handleStartDown = function (model) {
-	if (model.$ === 'Ready') {
-		var readyModel = model.a;
-		var startingYard = 20;
-		var protagonist = {x: 3, y: startingYard};
-		var _v1 = A3($author$project$BadGuys$generate, protagonist, $author$project$Main$bounds, readyModel.nextSeed);
-		var badGuys = _v1.a;
-		var nextSeed = _v1.b;
-		return _Utils_Tuple2(
-			$author$project$Main$Playing(
-				{badGuys: badGuys, footballDown: $author$project$FootballDown$first, lastBadGuyMove: $elm$core$Maybe$Nothing, nextSeed: nextSeed, protagonist: protagonist, setStartingYard: startingYard, startingYard: startingYard, tackled: $elm$core$Maybe$Nothing}),
-			$elm$core$Platform$Cmd$none);
-	} else {
-		var playingModel = model.a;
-		var _v2 = $author$project$FootballDown$next(playingModel.footballDown);
-		if (_v2.$ === 'Just') {
-			var nextDown = _v2.a;
-			var startingYard = playingModel.protagonist.y;
+	switch (model.$) {
+		case 'Ready':
+			var readyModel = model.a;
+			var startingYard = 20;
 			var protagonist = {x: 3, y: startingYard};
-			var gotFirstDown = _Utils_cmp(startingYard, playingModel.setStartingYard + 10) > 0;
-			var _v3 = A3($author$project$BadGuys$generate, protagonist, $author$project$Main$bounds, playingModel.nextSeed);
-			var badGuys = _v3.a;
-			var nextSeed = _v3.b;
+			var _v1 = A3($author$project$BadGuys$generate, protagonist, $author$project$Main$bounds, readyModel.nextSeed);
+			var badGuys = _v1.a;
+			var nextSeed = _v1.b;
 			return _Utils_Tuple2(
 				$author$project$Main$Playing(
-					{
-						badGuys: badGuys,
-						footballDown: gotFirstDown ? $author$project$FootballDown$first : nextDown,
-						lastBadGuyMove: $elm$core$Maybe$Nothing,
-						nextSeed: nextSeed,
-						protagonist: protagonist,
-						setStartingYard: gotFirstDown ? startingYard : playingModel.setStartingYard,
-						startingYard: startingYard,
-						tackled: $elm$core$Maybe$Nothing
-					}),
+					{badGuys: badGuys, footballDown: $author$project$FootballDown$first, nextSeed: nextSeed, protagonist: protagonist, setStartingYard: startingYard, sinceLastBadGuyMove: 0, sinceLastTackleCheck: 0, startingYard: startingYard, tackled: $elm$core$Maybe$Nothing, timeRemaining: 120000, touchdowns: 0}),
 				$elm$core$Platform$Cmd$none);
-		} else {
-			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-		}
+		case 'BetweenDowns':
+			var protagonist = model.a.protagonist;
+			var nextSeed = model.a.nextSeed;
+			var footballDown = model.a.footballDown;
+			var setStartingYard = model.a.setStartingYard;
+			var timeRemaining = model.a.timeRemaining;
+			var touchdowns = model.a.touchdowns;
+			var startingYard = protagonist.y;
+			var newProtagonist = {x: 3, y: startingYard};
+			var _v2 = A3($author$project$BadGuys$generate, newProtagonist, $author$project$Main$bounds, nextSeed);
+			var badGuys = _v2.a;
+			var newNextSeed = _v2.b;
+			return _Utils_Tuple2(
+				$author$project$Main$Playing(
+					{badGuys: badGuys, footballDown: footballDown, nextSeed: newNextSeed, protagonist: protagonist, setStartingYard: setStartingYard, sinceLastBadGuyMove: 0, sinceLastTackleCheck: 0, startingYard: startingYard, tackled: $elm$core$Maybe$Nothing, timeRemaining: timeRemaining, touchdowns: touchdowns}),
+				$elm$core$Platform$Cmd$none);
+		default:
+			var playingModel = model.a;
+			return _Utils_Tuple2(
+				$author$project$Main$Playing(playingModel),
+				$elm$core$Platform$Cmd$none);
 	}
 };
-var $elm_community$maybe_extra$Maybe$Extra$isNothing = function (m) {
-	if (m.$ === 'Nothing') {
-		return true;
-	} else {
-		return false;
-	}
+var $author$project$Main$BetweenDowns = function (a) {
+	return {$: 'BetweenDowns', a: a};
 };
-var $elm$time$Time$posixToMillis = function (_v0) {
-	var millis = _v0.a;
-	return millis;
-};
-var $elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
-				}
-			}
-		}
-	});
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $elm_community$list_extra$List$Extra$getAt = F2(
-	function (idx, xs) {
-		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
-			A2($elm$core$List$drop, idx, xs));
-	});
+var $author$project$Main$constants = {badGuyMoveTime: 750, tackleCheckTime: 375};
 var $elm$core$List$filter = F2(
 	function (isGood, list) {
 		return A3(
@@ -7274,6 +7206,51 @@ var $elm$core$List$filter = F2(
 				}),
 			_List_Nil,
 			list);
+	});
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $elm$random$Random$float = F2(
+	function (a, b) {
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var seed1 = $elm$random$Random$next(seed0);
+				var range = $elm$core$Basics$abs(b - a);
+				var n1 = $elm$random$Random$peel(seed1);
+				var n0 = $elm$random$Random$peel(seed0);
+				var lo = (134217727 & n1) * 1.0;
+				var hi = (67108863 & n0) * 1.0;
+				var val = ((hi * 134217728.0) + lo) / 9007199254740992.0;
+				var scaled = (val * range) + a;
+				return _Utils_Tuple2(
+					scaled,
+					$elm$random$Random$next(seed1));
+			});
+	});
+var $elm$core$Basics$ge = _Utils_ge;
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm_community$maybe_extra$Maybe$Extra$isNothing = function (m) {
+	if (m.$ === 'Nothing') {
+		return true;
+	} else {
+		return false;
+	}
+};
+var $elm$core$Tuple$mapFirst = F2(
+	function (func, _v0) {
+		var x = _v0.a;
+		var y = _v0.b;
+		return _Utils_Tuple2(
+			func(x),
+			y);
 	});
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
@@ -7312,13 +7289,139 @@ var $author$project$Coord$moveUp = function (coord) {
 		coord,
 		{y: coord.y + 1});
 };
+var $author$project$FootballDown$FourthDown = {$: 'FourthDown'};
+var $author$project$FootballDown$SecondDown = {$: 'SecondDown'};
+var $author$project$FootballDown$ThirdDown = {$: 'ThirdDown'};
+var $author$project$FootballDown$next = function (footballDown) {
+	switch (footballDown.$) {
+		case 'FirstDown':
+			return $elm$core$Maybe$Just($author$project$FootballDown$SecondDown);
+		case 'SecondDown':
+			return $elm$core$Maybe$Just($author$project$FootballDown$ThirdDown);
+		case 'ThirdDown':
+			return $elm$core$Maybe$Just($author$project$FootballDown$FourthDown);
+		default:
+			return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Main$maybeTackleProtagonist = function (model) {
+	if (model.$ === 'Playing') {
+		var playingModel = model.a;
+		var shouldPerformTackleCheck = _Utils_cmp(playingModel.sinceLastTackleCheck, $author$project$Main$constants.tackleCheckTime) > 0;
+		var notTackled = $elm_community$maybe_extra$Maybe$Extra$isNothing(playingModel.tackled);
+		var gotFirstDown = _Utils_cmp(playingModel.protagonist.y, playingModel.setStartingYard + 10) > -1;
+		var _v1 = A2(
+			$elm$random$Random$step,
+			A2($elm$random$Random$float, 0, 1),
+			playingModel.nextSeed);
+		var probability = _v1.a;
+		var newNextSeed = _v1.b;
+		var maybeTackler = $elm$core$List$head(
+			A2(
+				$elm$core$List$filter,
+				function (_v4) {
+					var coord = _v4.a;
+					var tackleChance = _v4.b;
+					return A2($author$project$BadGuys$member, coord, playingModel.badGuys) && (_Utils_cmp(tackleChance, probability) > 0);
+				},
+				A2(
+					$elm$core$List$map,
+					$elm$core$Tuple$mapFirst(
+						function (fn) {
+							return fn(playingModel.protagonist);
+						}),
+					_List_fromArray(
+						[
+							_Utils_Tuple2($author$project$Coord$moveUp, 0.5),
+							_Utils_Tuple2($author$project$Coord$moveLeft, 0.4),
+							_Utils_Tuple2($author$project$Coord$moveRight, 0.4),
+							_Utils_Tuple2($author$project$Coord$moveDown, 0.2)
+						]))));
+		if (notTackled && shouldPerformTackleCheck) {
+			if (maybeTackler.$ === 'Just') {
+				var tackler = maybeTackler.a;
+				if (gotFirstDown) {
+					return $author$project$Main$BetweenDowns(
+						{
+							badGuys: playingModel.badGuys,
+							footballDown: $author$project$FootballDown$first,
+							nextSeed: newNextSeed,
+							protagonist: playingModel.protagonist,
+							setStartingYard: playingModel.protagonist.y,
+							startingYard: playingModel.startingYard,
+							tackled: $elm$core$Maybe$Just(
+								{coord: playingModel.protagonist, previousCoord: tackler.a}),
+							timeRemaining: playingModel.timeRemaining,
+							touchdowns: playingModel.touchdowns
+						});
+				} else {
+					var _v3 = $author$project$FootballDown$next(playingModel.footballDown);
+					if (_v3.$ === 'Just') {
+						var nextDown = _v3.a;
+						return $author$project$Main$BetweenDowns(
+							{
+								badGuys: playingModel.badGuys,
+								footballDown: nextDown,
+								nextSeed: newNextSeed,
+								protagonist: playingModel.protagonist,
+								setStartingYard: playingModel.setStartingYard,
+								startingYard: playingModel.startingYard,
+								tackled: $elm$core$Maybe$Just(
+									{coord: playingModel.protagonist, previousCoord: tackler.a}),
+								timeRemaining: playingModel.timeRemaining,
+								touchdowns: playingModel.touchdowns
+							});
+					} else {
+						return $author$project$Main$Ready(
+							{nextSeed: newNextSeed});
+					}
+				}
+			} else {
+				return $author$project$Main$Playing(
+					_Utils_update(
+						playingModel,
+						{nextSeed: newNextSeed, sinceLastTackleCheck: 0}));
+			}
+		} else {
+			return model;
+		}
+	} else {
+		return model;
+	}
+};
+var $elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
+		while (true) {
+			if (n <= 0) {
+				return list;
+			} else {
+				if (!list.b) {
+					return list;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
+				}
+			}
+		}
+	});
+var $elm_community$list_extra$List$Extra$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
+			A2($elm$core$List$drop, idx, xs));
+	});
 var $elm$core$Basics$not = _Basics_not;
-var $author$project$BadGuys$validMovesForBadGuy = F3(
-	function (bounds, coord, badGuys) {
+var $author$project$BadGuys$validMovesForBadGuy = F4(
+	function (bounds, protagonist, testCoord, badGuys) {
 		return A2(
 			$elm$core$List$filter,
 			function (c) {
-				return !A2($author$project$BadGuys$member, c, badGuys);
+				return (!A2($author$project$BadGuys$member, c, badGuys)) && (!_Utils_eq(c, protagonist));
 			},
 			A2(
 				$elm$core$List$map,
@@ -7326,7 +7429,7 @@ var $author$project$BadGuys$validMovesForBadGuy = F3(
 					return A2(
 						$author$project$Coord$constrain,
 						bounds,
-						fn(coord));
+						fn(testCoord));
 				},
 				_List_fromArray(
 					[$author$project$Coord$moveUp, $author$project$Coord$moveDown, $author$project$Coord$moveLeft, $author$project$Coord$moveRight])));
@@ -7340,8 +7443,8 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$BadGuys$step = F3(
-	function (seed, bounds, _v0) {
+var $author$project$BadGuys$step = F4(
+	function (seed, bounds, protagonist, _v0) {
 		var badGuys = _v0.a;
 		var _v1 = A3(
 			$elm$core$Dict$foldl,
@@ -7349,9 +7452,10 @@ var $author$project$BadGuys$step = F3(
 				function (_v2, _v3, acc) {
 					var x = _v2.a;
 					var y = _v2.b;
-					var validMoves = A3(
+					var validMoves = A4(
 						$author$project$BadGuys$validMovesForBadGuy,
 						bounds,
+						protagonist,
 						{x: x, y: y},
 						$author$project$BadGuys$BadGuys(acc.newBadGuys));
 					var _v4 = A2(
@@ -7389,75 +7493,46 @@ var $author$project$BadGuys$step = F3(
 			$author$project$BadGuys$BadGuys(newBadGuys),
 			newSeed);
 	});
-var $author$project$Main$handleTick = F2(
-	function (time, model) {
+var $author$project$Main$moveBadGuysIfItsTime = function (model) {
+	if (model.$ === 'Playing') {
+		var playingModel = model.a;
+		var shouldHandleBadGuyMove = _Utils_cmp(playingModel.sinceLastBadGuyMove, $author$project$Main$constants.badGuyMoveTime) > 0;
+		var notTackled = $elm_community$maybe_extra$Maybe$Extra$isNothing(playingModel.tackled);
+		if (notTackled && shouldHandleBadGuyMove) {
+			var _v1 = A4($author$project$BadGuys$step, playingModel.nextSeed, $author$project$Main$bounds, playingModel.protagonist, playingModel.badGuys);
+			var newBadGuyPositions = _v1.a;
+			var nextSeed = _v1.b;
+			return $author$project$Main$Playing(
+				_Utils_update(
+					playingModel,
+					{badGuys: newBadGuyPositions, nextSeed: nextSeed, sinceLastBadGuyMove: 0}));
+		} else {
+			return model;
+		}
+	} else {
+		return model;
+	}
+};
+var $author$project$Main$progressTime = F2(
+	function (delta, model) {
 		if (model.$ === 'Playing') {
 			var playingModel = model.a;
-			var notTackled = $elm_community$maybe_extra$Maybe$Extra$isNothing(playingModel.tackled);
-			var isTime = A2(
-				$elm$core$Maybe$withDefault,
-				false,
-				A2(
-					$elm$core$Maybe$map,
-					function (lastMove) {
-						return ($elm$time$Time$posixToMillis(time) - $elm$time$Time$posixToMillis(lastMove)) > 200;
-					},
-					playingModel.lastBadGuyMove));
-			var _v1 = _Utils_Tuple2(playingModel.tackled, playingModel.lastBadGuyMove);
-			if (_v1.a.$ === 'Just') {
-				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-			} else {
-				if (_v1.b.$ === 'Nothing') {
-					var _v2 = _v1.a;
-					var _v3 = _v1.b;
-					return _Utils_Tuple2(
-						$author$project$Main$Playing(
-							_Utils_update(
-								playingModel,
-								{
-									lastBadGuyMove: $elm$core$Maybe$Just(time)
-								})),
-						$elm$core$Platform$Cmd$none);
-				} else {
-					var _v4 = _v1.a;
-					var lastMove = _v1.b.a;
-					if (($elm$time$Time$posixToMillis(time) - $elm$time$Time$posixToMillis(lastMove)) > 500) {
-						var _v5 = A3($author$project$BadGuys$step, playingModel.nextSeed, $author$project$Main$bounds, playingModel.badGuys);
-						var newBadGuyPositions = _v5.a;
-						var nextSeed = _v5.b;
-						var currentlyInSpot = A2($author$project$BadGuys$currentBadGuy, playingModel.protagonist, newBadGuyPositions);
-						if (currentlyInSpot.$ === 'Just') {
-							var badGuy = currentlyInSpot.a;
-							return _Utils_Tuple2(
-								$author$project$Main$Playing(
-									_Utils_update(
-										playingModel,
-										{
-											badGuys: newBadGuyPositions,
-											nextSeed: nextSeed,
-											tackled: $elm$core$Maybe$Just(badGuy)
-										})),
-								$elm$core$Platform$Cmd$none);
-						} else {
-							return _Utils_Tuple2(
-								$author$project$Main$Playing(
-									_Utils_update(
-										playingModel,
-										{
-											badGuys: newBadGuyPositions,
-											lastBadGuyMove: $elm$core$Maybe$Just(time),
-											nextSeed: nextSeed
-										})),
-								$elm$core$Platform$Cmd$none);
-						}
-					} else {
-						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-					}
-				}
-			}
+			return $author$project$Main$Playing(
+				_Utils_update(
+					playingModel,
+					{sinceLastBadGuyMove: playingModel.sinceLastBadGuyMove + delta, sinceLastTackleCheck: playingModel.sinceLastTackleCheck + delta, timeRemaining: playingModel.timeRemaining - delta}));
 		} else {
-			return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			return model;
 		}
+	});
+var $author$project$Main$handleTick = F2(
+	function (delta, model) {
+		return function (m) {
+			return _Utils_Tuple2(m, $elm$core$Platform$Cmd$none);
+		}(
+			$author$project$Main$maybeTackleProtagonist(
+				$author$project$Main$moveBadGuysIfItsTime(
+					A2($author$project$Main$progressTime, delta, model))));
 	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
@@ -7488,8 +7563,8 @@ var $author$project$Main$update = F2(
 			case 'StartDown':
 				return $author$project$Main$handleStartDown(model);
 			case 'Tick':
-				var posix = msg.a;
-				return A2($author$project$Main$handleTick, posix, model);
+				var delta = msg.a;
+				return A2($author$project$Main$handleTick, delta, model);
 			default:
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 		}
@@ -9060,17 +9135,6 @@ var $author$project$HtmlHelpers$layout = F2(
 				attrs),
 			children);
 	});
-var $rtfeldman$elm_css$VirtualDom$Styled$Unstyled = function (a) {
-	return {$: 'Unstyled', a: a};
-};
-var $rtfeldman$elm_css$VirtualDom$Styled$text = function (str) {
-	return $rtfeldman$elm_css$VirtualDom$Styled$Unstyled(
-		$elm$virtual_dom$VirtualDom$text(str));
-};
-var $rtfeldman$elm_css$Html$Styled$text = $rtfeldman$elm_css$VirtualDom$Styled$text;
-var $author$project$Main$viewDebug = function (model) {
-	return $rtfeldman$elm_css$Html$Styled$text('Hey pepo - makin prog');
-};
 var $author$project$Main$StartDown = {$: 'StartDown'};
 var $rtfeldman$elm_css$Css$Preprocess$ApplyStyles = function (a) {
 	return {$: 'ApplyStyles', a: a};
@@ -9145,23 +9209,13 @@ var $rtfeldman$elm_css$Css$alignItems = function (fn) {
 		'align-items',
 		fn($rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty));
 };
-var $rtfeldman$elm_css$Css$backgroundColor = function (c) {
-	return A2($rtfeldman$elm_css$Css$property, 'background-color', c.value);
-};
-var $rtfeldman$elm_css$Css$batch = $rtfeldman$elm_css$Css$Preprocess$ApplyStyles;
-var $rtfeldman$elm_css$Css$prop3 = F4(
-	function (key, argA, argB, argC) {
-		return A2($rtfeldman$elm_css$Css$property, key, argA.value + (' ' + (argB.value + (' ' + argC.value))));
-	});
-var $rtfeldman$elm_css$Css$border3 = $rtfeldman$elm_css$Css$prop3('border');
-var $rtfeldman$elm_css$Css$borderBottom3 = $rtfeldman$elm_css$Css$prop3('border-bottom');
 var $rtfeldman$elm_css$Html$Styled$button = $rtfeldman$elm_css$Html$Styled$node('button');
 var $rtfeldman$elm_css$Css$center = $rtfeldman$elm_css$Css$prop1('center');
-var $rtfeldman$elm_css$Css$displayFlex = A2($rtfeldman$elm_css$Css$property, 'display', 'flex');
 var $rtfeldman$elm_css$Css$row = {flexDirection: $rtfeldman$elm_css$Css$Structure$Compatible, flexDirectionOrWrap: $rtfeldman$elm_css$Css$Structure$Compatible, value: 'row'};
 var $rtfeldman$elm_css$Css$column = _Utils_update(
 	$rtfeldman$elm_css$Css$row,
 	{value: 'column'});
+var $rtfeldman$elm_css$Css$displayFlex = A2($rtfeldman$elm_css$Css$property, 'display', 'flex');
 var $rtfeldman$elm_css$Css$flexDirection = $rtfeldman$elm_css$Css$prop1('flex-direction');
 var $author$project$HtmlHelpers$flexColumn = F2(
 	function (attrs, children) {
@@ -9178,35 +9232,11 @@ var $author$project$HtmlHelpers$flexColumn = F2(
 				attrs),
 			children);
 	});
-var $author$project$HtmlHelpers$flexRow = F2(
-	function (attrs, children) {
-		return A2(
-			$rtfeldman$elm_css$Html$Styled$div,
-			A2(
-				$elm$core$List$cons,
-				$rtfeldman$elm_css$Html$Styled$Attributes$css(
-					_List_fromArray(
-						[$rtfeldman$elm_css$Css$displayFlex])),
-				attrs),
-			children);
-	});
 var $author$project$HtmlHelpers$gap = function (pixels) {
 	return A2(
 		$rtfeldman$elm_css$Css$property,
 		'gap',
 		$elm$core$String$fromInt(pixels) + 'px');
-};
-var $author$project$Main$grid = _Utils_Tuple2(
-	A2($elm$core$List$range, 0, 6),
-	$elm$core$List$reverse(
-		A2($elm$core$List$range, 0, 100)));
-var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
-var $rtfeldman$elm_css$Css$justifyContent = function (fn) {
-	return A3(
-		$rtfeldman$elm_css$Css$Internal$getOverloadedProperty,
-		'justifyContent',
-		'justify-content',
-		fn($rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty));
 };
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
@@ -9232,6 +9262,60 @@ var $rtfeldman$elm_css$Html$Styled$Events$onClick = function (msg) {
 		$rtfeldman$elm_css$Html$Styled$Events$on,
 		'click',
 		$elm$json$Json$Decode$succeed(msg));
+};
+var $rtfeldman$elm_css$VirtualDom$Styled$Unstyled = function (a) {
+	return {$: 'Unstyled', a: a};
+};
+var $rtfeldman$elm_css$VirtualDom$Styled$text = function (str) {
+	return $rtfeldman$elm_css$VirtualDom$Styled$Unstyled(
+		$elm$virtual_dom$VirtualDom$text(str));
+};
+var $rtfeldman$elm_css$Html$Styled$text = $rtfeldman$elm_css$VirtualDom$Styled$text;
+var $author$project$FootballDown$toString = function (footballDown) {
+	switch (footballDown.$) {
+		case 'FirstDown':
+			return 'First Down';
+		case 'SecondDown':
+			return 'Second Down';
+		case 'ThirdDown':
+			return 'Third Down';
+		default:
+			return 'Fourth Down';
+	}
+};
+var $rtfeldman$elm_css$Css$backgroundColor = function (c) {
+	return A2($rtfeldman$elm_css$Css$property, 'background-color', c.value);
+};
+var $rtfeldman$elm_css$Css$batch = $rtfeldman$elm_css$Css$Preprocess$ApplyStyles;
+var $rtfeldman$elm_css$Css$prop3 = F4(
+	function (key, argA, argB, argC) {
+		return A2($rtfeldman$elm_css$Css$property, key, argA.value + (' ' + (argB.value + (' ' + argC.value))));
+	});
+var $rtfeldman$elm_css$Css$border3 = $rtfeldman$elm_css$Css$prop3('border');
+var $rtfeldman$elm_css$Css$borderBottom3 = $rtfeldman$elm_css$Css$prop3('border-bottom');
+var $author$project$HtmlHelpers$flexRow = F2(
+	function (attrs, children) {
+		return A2(
+			$rtfeldman$elm_css$Html$Styled$div,
+			A2(
+				$elm$core$List$cons,
+				$rtfeldman$elm_css$Html$Styled$Attributes$css(
+					_List_fromArray(
+						[$rtfeldman$elm_css$Css$displayFlex])),
+				attrs),
+			children);
+	});
+var $author$project$Main$grid = _Utils_Tuple2(
+	A2($elm$core$List$range, 0, 6),
+	$elm$core$List$reverse(
+		A2($elm$core$List$range, 0, 100)));
+var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
+var $rtfeldman$elm_css$Css$justifyContent = function (fn) {
+	return A3(
+		$rtfeldman$elm_css$Css$Internal$getOverloadedProperty,
+		'justifyContent',
+		'justify-content',
+		fn($rtfeldman$elm_css$Css$Internal$lengthForOverloadedProperty));
 };
 var $rtfeldman$elm_css$Css$cssFunction = F2(
 	function (funcName, args) {
@@ -9279,18 +9363,6 @@ var $rtfeldman$elm_css$Css$rgba = F4(
 		};
 	});
 var $rtfeldman$elm_css$Css$solid = {borderStyle: $rtfeldman$elm_css$Css$Structure$Compatible, textDecorationStyle: $rtfeldman$elm_css$Css$Structure$Compatible, value: 'solid'};
-var $author$project$FootballDown$toString = function (footballDown) {
-	switch (footballDown.$) {
-		case 'FirstDown':
-			return 'First Down';
-		case 'SecondDown':
-			return 'Second Down';
-		case 'ThirdDown':
-			return 'Third Down';
-		default:
-			return 'Fourth Down';
-	}
-};
 var $rtfeldman$elm_css$Css$valuesOrNone = function (list) {
 	return $elm$core$List$isEmpty(list) ? {value: 'none'} : {
 		value: A3(
@@ -9323,13 +9395,11 @@ var $rtfeldman$elm_css$Css$translateY = function (_v0) {
 	};
 };
 var $rtfeldman$elm_css$Css$width = $rtfeldman$elm_css$Css$prop1('width');
-var $author$project$Main$viewPlayingModel = function (_v0) {
-	var protagonist = _v0.protagonist;
+var $author$project$Main$viewField = function (_v0) {
 	var badGuys = _v0.badGuys;
+	var protagonist = _v0.protagonist;
 	var tackled = _v0.tackled;
 	var setStartingYard = _v0.setStartingYard;
-	var startingYard = _v0.startingYard;
-	var footballDown = _v0.footballDown;
 	var viewCell = function (coord) {
 		var isProtagonist = _Utils_eq(coord, protagonist);
 		var isBadGuy = A2($author$project$BadGuys$member, coord, badGuys);
@@ -9421,6 +9491,87 @@ var $author$project$Main$viewPlayingModel = function (_v0) {
 	var rowsToShow = $elm$core$List$reverse(
 		A2($elm$core$List$range, protagonist.y - 1, protagonist.y + 4));
 	return A2(
+		$author$project$HtmlHelpers$flexRow,
+		_List_fromArray(
+			[
+				$rtfeldman$elm_css$Html$Styled$Attributes$css(
+				_List_fromArray(
+					[
+						$rtfeldman$elm_css$Css$justifyContent($rtfeldman$elm_css$Css$center),
+						$rtfeldman$elm_css$Css$alignItems($rtfeldman$elm_css$Css$center)
+					]))
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$author$project$HtmlHelpers$flexColumn,
+				_List_Nil,
+				A2($elm$core$List$map, viewRow, rowsToShow))
+			]));
+};
+var $elm$core$String$concat = function (strings) {
+	return A2($elm$core$String$join, '', strings);
+};
+var $author$project$Main$formatTime = function (timeRemaining) {
+	var secondsRemaining = A2(
+		$elm$core$Basics$modBy,
+		60000,
+		$elm$core$Basics$floor(timeRemaining));
+	var minutesLeft = $elm$core$Basics$floor(timeRemaining / 60000);
+	return $elm$core$String$concat(
+		_List_fromArray(
+			[
+				'0',
+				$elm$core$String$fromInt(minutesLeft),
+				':',
+				A3(
+				$elm$core$String$slice,
+				0,
+				2,
+				$elm$core$String$fromInt(secondsRemaining))
+			]));
+};
+var $author$project$Main$viewScoreboard = function (_v0) {
+	var timeRemaining = _v0.timeRemaining;
+	var touchdowns = _v0.touchdowns;
+	var footballDown = _v0.footballDown;
+	return A2(
+		$author$project$HtmlHelpers$flexColumn,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				$rtfeldman$elm_css$Html$Styled$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$rtfeldman$elm_css$Html$Styled$text(
+						$author$project$Main$formatTime(timeRemaining))
+					])),
+				A2(
+				$rtfeldman$elm_css$Html$Styled$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$rtfeldman$elm_css$Html$Styled$text(
+						$author$project$FootballDown$toString(footballDown))
+					])),
+				A2(
+				$rtfeldman$elm_css$Html$Styled$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$rtfeldman$elm_css$Html$Styled$text(
+						'Score: ' + $elm$core$String$fromInt(touchdowns))
+					]))
+			]));
+};
+var $author$project$Main$viewBetweenDowns = function (betweenDownsModel) {
+	var tackled = betweenDownsModel.tackled;
+	var footballDown = betweenDownsModel.footballDown;
+	var protagonist = betweenDownsModel.protagonist;
+	var startingYard = betweenDownsModel.startingYard;
+	return A2(
 		$author$project$HtmlHelpers$flexColumn,
 		_List_fromArray(
 			[
@@ -9433,24 +9584,8 @@ var $author$project$Main$viewPlayingModel = function (_v0) {
 			]),
 		_List_fromArray(
 			[
-				A2(
-				$author$project$HtmlHelpers$flexRow,
-				_List_fromArray(
-					[
-						$rtfeldman$elm_css$Html$Styled$Attributes$css(
-						_List_fromArray(
-							[
-								$rtfeldman$elm_css$Css$justifyContent($rtfeldman$elm_css$Css$center),
-								$rtfeldman$elm_css$Css$alignItems($rtfeldman$elm_css$Css$center)
-							]))
-					]),
-				_List_fromArray(
-					[
-						A2(
-						$author$project$HtmlHelpers$flexColumn,
-						_List_Nil,
-						A2($elm$core$List$map, viewRow, rowsToShow))
-					])),
+				$author$project$Main$viewField(betweenDownsModel),
+				$author$project$Main$viewScoreboard(betweenDownsModel),
 				function () {
 				if (tackled.$ === 'Just') {
 					return A2(
@@ -9466,22 +9601,14 @@ var $author$project$Main$viewPlayingModel = function (_v0) {
 										$rtfeldman$elm_css$Html$Styled$text(
 										'You gained ' + ($elm$core$String$fromInt(protagonist.y - startingYard) + ' yards.'))
 									])),
-								function () {
-								var _v2 = $author$project$FootballDown$next(footballDown);
-								if (_v2.$ === 'Just') {
-									var next = _v2.a;
-									return A2(
-										$rtfeldman$elm_css$Html$Styled$div,
-										_List_Nil,
-										_List_fromArray(
-											[
-												$rtfeldman$elm_css$Html$Styled$text(
-												'It\'s now ' + $author$project$FootballDown$toString(next))
-											]));
-								} else {
-									return $rtfeldman$elm_css$Html$Styled$text('');
-								}
-							}(),
+								A2(
+								$rtfeldman$elm_css$Html$Styled$div,
+								_List_Nil,
+								_List_fromArray(
+									[
+										$rtfeldman$elm_css$Html$Styled$text(
+										'It\'s now ' + $author$project$FootballDown$toString(footballDown))
+									])),
 								A2(
 								$rtfeldman$elm_css$Html$Styled$button,
 								_List_fromArray(
@@ -9497,6 +9624,27 @@ var $author$project$Main$viewPlayingModel = function (_v0) {
 					return $rtfeldman$elm_css$Html$Styled$text('');
 				}
 			}()
+			]));
+};
+var $author$project$Main$viewDebug = function (model) {
+	return $rtfeldman$elm_css$Html$Styled$text('Hey pepo - makin prog');
+};
+var $author$project$Main$viewPlayingModel = function (playingModel) {
+	return A2(
+		$author$project$HtmlHelpers$flexColumn,
+		_List_fromArray(
+			[
+				$rtfeldman$elm_css$Html$Styled$Attributes$css(
+				_List_fromArray(
+					[
+						$author$project$HtmlHelpers$gap(24),
+						$rtfeldman$elm_css$Css$alignItems($rtfeldman$elm_css$Css$center)
+					]))
+			]),
+		_List_fromArray(
+			[
+				$author$project$Main$viewField(playingModel),
+				$author$project$Main$viewScoreboard(playingModel)
 			]));
 };
 var $author$project$Main$viewReadyModel = function (readyModel) {
@@ -9548,18 +9696,25 @@ var $author$project$Main$view = function (model) {
 				v);
 		}(
 			function () {
-				if (model.$ === 'Playing') {
-					var playingModel = model.a;
-					return _List_fromArray(
-						[
-							$author$project$Main$viewPlayingModel(playingModel)
-						]);
-				} else {
-					var readyModel = model.a;
-					return _List_fromArray(
-						[
-							$author$project$Main$viewReadyModel(readyModel)
-						]);
+				switch (model.$) {
+					case 'Playing':
+						var playingModel = model.a;
+						return _List_fromArray(
+							[
+								$author$project$Main$viewPlayingModel(playingModel)
+							]);
+					case 'BetweenDowns':
+						var betweenDownsModel = model.a;
+						return _List_fromArray(
+							[
+								$author$project$Main$viewBetweenDowns(betweenDownsModel)
+							]);
+					default:
+						var readyModel = model.a;
+						return _List_fromArray(
+							[
+								$author$project$Main$viewReadyModel(readyModel)
+							]);
 				}
 			}()));
 };
