@@ -6986,7 +6986,6 @@ var $author$project$BadGuys$currentBadGuy = F2(
 				$author$project$Coord$toComparable(coord),
 				badGuys));
 	});
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$Main$handleProtagonistMove = F2(
 	function (moveFn, model) {
 		if (model.$ === 'Playing') {
@@ -6997,7 +6996,7 @@ var $author$project$Main$handleProtagonistMove = F2(
 					$author$project$Coord$constrain,
 					$author$project$Main$bounds,
 					moveFn(playingModel.protagonist));
-				var scoredTouchdown = A2($elm$core$Debug$log, 'hi', spotToMoveTo.y === 100);
+				var scoredTouchdown = spotToMoveTo.y === 100;
 				var currentlyInSpot = A2($author$project$BadGuys$currentBadGuy, spotToMoveTo, playingModel.badGuys);
 				if (currentlyInSpot.$ === 'Just') {
 					return _Utils_Tuple2(
@@ -7207,14 +7206,10 @@ var $author$project$BadGuys$generator = function (protagonistCoord) {
 			function (above, below) {
 				return A2(
 					$elm$random$Random$weighted,
-					_Utils_Tuple2(
-						A2($elm$core$Debug$log, 'above', 1 - (protagonistCoord.y / 100)),
-						above),
+					_Utils_Tuple2(1 - (protagonistCoord.y / 100), above),
 					_List_fromArray(
 						[
-							_Utils_Tuple2(
-							A2($elm$core$Debug$log, 'below', protagonistCoord.y / 100),
-							below)
+							_Utils_Tuple2(protagonistCoord.y / 100, below)
 						]));
 			}),
 		aboveProtagonist,

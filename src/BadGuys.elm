@@ -44,8 +44,8 @@ generator protagonistCoord =
     Random.andThen2
         (\above below ->
             Random.weighted
-                ( Debug.log "above" <| 1 - toFloat protagonistCoord.y / 100, above )
-                [ ( Debug.log "below" <| (toFloat protagonistCoord.y / 100), below ) ]
+                ( 1 - toFloat protagonistCoord.y / 100, above )
+                [ ( toFloat protagonistCoord.y / 100, below ) ]
         )
         aboveProtagonist
         belowProtagonist

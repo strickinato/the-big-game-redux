@@ -341,7 +341,6 @@ handleProtagonistMove moveFn model =
                         scoredTouchdown =
                             spotToMoveTo.y
                                 == 100
-                                |> Debug.log "hi"
                     in
                     case currentlyInSpot of
                         Just _ ->
