@@ -5,6 +5,7 @@ import Coord exposing (Coord)
 import Dict exposing (Dict)
 import List.Extra as List
 import Random
+import Random.Extra as Random
 
 
 type BadGuys
@@ -29,7 +30,25 @@ generate protagonistCoord bounds seed =
 generator : Coord -> Random.Generator ( Int, Int )
 generator protagonistCoord =
     -- TODO goal line stands
-    Random.map2 Tuple.pair (Random.int 0 6) (Random.int (protagonistCoord.y + 2) 99)
+    let
+        aboveProtagonist =
+            Random.map2 Tuple.pair
+                (Random.int 0 6)
+                (Random.int (protagonistCoord.y + 2) 99)
+
+        belowProtagonist =
+            Random.map2 Tuple.pair
+                (Random.int 0 6)
+                (Random.int 0 (protagonistCoord.y - 2))
+    in
+    Random.andThen2
+        (\above below ->
+            Random.weighted
+                ( Debug.log "above" <| 1 - toFloat protagonistCoord.y / 100, above )
+                [ ( Debug.log "below" <| (toFloat protagonistCoord.y / 100), below ) ]
+        )
+        aboveProtagonist
+        belowProtagonist
 
 
 step : Random.Seed -> Bounds -> Coord -> BadGuys -> ( BadGuys, Random.Seed )

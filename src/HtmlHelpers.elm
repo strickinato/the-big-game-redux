@@ -29,7 +29,7 @@ layout attrs children =
     Html.div
         (css
             [ maxWidth (px 960)
-            , margin2 zero auto
+            , margin2 (px 120) auto
             ]
             :: attrs
         )

@@ -22,7 +22,10 @@ import Random
 
 constants =
     { badGuyMoveTime = 750
-    , tackleCheckTime = 375
+    , tackleCheckTime = 200
+    , gridSize = 48
+    , startingYard = 20
+    , temporaryRandomSeed = Random.initialSeed 30
     }
 
 
@@ -110,6 +113,9 @@ update msg model =
 
                 Key.L ->
                     handleProtagonistMove Coord.moveRight model
+
+                Key.Spacebar ->
+                    handleStartDown model
 
                 _ ->
                     ( model, Cmd.none )
@@ -255,11 +261,8 @@ handleStartDown model =
     case model of
         Ready readyModel ->
             let
-                startingYard =
-                    20
-
                 protagonist =
-                    { x = 3, y = startingYard }
+                    { x = 3, y = constants.startingYard }
 
                 ( badGuys, nextSeed ) =
                     BadGuys.generate
@@ -272,8 +275,8 @@ handleStartDown model =
                 , protagonist = protagonist
                 , tackled = Nothing
                 , footballDown = FootballDown.first
-                , startingYard = startingYard
-                , setStartingYard = startingYard
+                , startingYard = constants.startingYard
+                , setStartingYard = constants.startingYard
                 , nextSeed = nextSeed
                 , sinceLastBadGuyMove = 0
                 , sinceLastTackleCheck = 0
@@ -334,6 +337,11 @@ handleProtagonistMove moveFn model =
 
                         currentlyInSpot =
                             BadGuys.currentBadGuy spotToMoveTo playingModel.badGuys
+
+                        scoredTouchdown =
+                            spotToMoveTo.y
+                                == 100
+                                |> Debug.log "hi"
                     in
                     case currentlyInSpot of
                         Just _ ->
@@ -342,9 +350,15 @@ handleProtagonistMove moveFn model =
                             )
 
                         Nothing ->
-                            ( Playing { playingModel | protagonist = spotToMoveTo }
-                            , Cmd.none
-                            )
+                            if scoredTouchdown then
+                                ( Ready { nextSeed = playingModel.nextSeed }
+                                , Cmd.none
+                                )
+
+                            else
+                                ( Playing { playingModel | protagonist = spotToMoveTo }
+                                , Cmd.none
+                                )
 
                 Just _ ->
                     -- Can't move if you're tackled!!
@@ -357,7 +371,8 @@ handleProtagonistMove moveFn model =
 init : ( Model, Cmd Msg )
 init =
     ( Ready
-        { nextSeed = Random.initialSeed 0
+        -- TODO get seed from javascript
+        { nextSeed = constants.temporaryRandomSeed
         }
     , Cmd.none
     )
@@ -375,7 +390,6 @@ view model =
         Ready readyModel ->
             [ viewReadyModel readyModel ]
     )
-        |> (\v -> viewDebug model :: v)
         |> Html.layout []
 
 
@@ -389,7 +403,7 @@ bounds =
     { xMin = 0
     , xMax = 6
     , yMin = 0
-    , yMax = 99
+    , yMax = 100
     }
 
 
@@ -397,8 +411,13 @@ viewReadyModel : ReadyModel -> Html Msg
 viewReadyModel readyModel =
     Html.flexRow
         [ css [ justifyContent center ] ]
-        [ Html.flexColumn [ css [ Html.gap 24 ] ]
-            [ Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+        [ Html.flexColumn []
+            [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
+            , Html.p [] [ Html.text "This is an unfinished homage to The Big Game: Bugs vs Daffy" ]
+            , Html.p [] [ Html.text "The goal is to score 3 touchdowns in 2 minutes" ]
+            , Html.p [] [ Html.text "Space Bar to start" ]
+            , Html.p [] [ Html.text "Arrow Keys to run" ]
+            , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
             ]
         ]
 
@@ -478,13 +497,19 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
                             [ css
                                 [ displayFlex
                                 , alignItems center
-                                , transform (translateY (px 12))
-                                , height (px 24)
-                                , width (px 24)
+                                , height (px constants.gridSize)
+                                , width (px constants.gridSize)
+                                , fontSize (px constants.gridSize)
+                                , backgroundColor (rgb 80 210 90)
+                                , color (rgb 255 255 255)
+                                , borderLeft3 (px 8) solid (rgb 255 255 255)
                                 ]
                             ]
                             [ if modBy 5 y == 0 then
-                                Html.text (String.fromInt y)
+                                Html.span
+                                    [ css [ transform (translateY (px (constants.gridSize / 2))) ]
+                                    ]
+                                    [ Html.text (String.fromInt y) ]
 
                               else
                                 Html.text ""
@@ -514,7 +539,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
 
                         Just tackler ->
                             if tackler.previousCoord == coord then
-                                "-"
+                                "--"
 
                             else if tackler.coord == coord then
                                 "X"
@@ -530,17 +555,17 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
                     [ displayFlex
                     , alignItems center
                     , justifyContent center
-                    , width (px 24)
-                    , height (px 24)
+                    , width (px constants.gridSize)
+                    , height (px constants.gridSize)
                     , backgroundColor (rgb 100 220 100)
                     , border3 (px 1) solid (rgba 100 100 100 0.2)
-                    , if modBy 10 coord.y == 0 then
-                        borderBottom3 (px 2) solid (rgb 255 255 255)
+                    , if modBy 5 coord.y == 0 then
+                        borderBottom3 (px 10) solid (rgb 255 255 255)
 
                       else
                         batch []
                     , if coord.y == setStartingYard + 10 then
-                        borderBottom3 (px 2) solid (rgb 220 220 100)
+                        borderBottom3 (px 10) solid (rgb 220 220 100)
 
                       else
                         batch []
@@ -555,20 +580,21 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
         ]
 
 
-viewDebug : Model -> Html msg
-viewDebug model =
-    Html.text "Hey pepo - makin prog"
-
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model of
-        Playing _ ->
-            Sub.batch
-                [ Browser.Events.onKeyDown <|
-                    Decode.map HandleKeyboardEvent decodeKeyboardEvent
-                , Browser.Events.onAnimationFrameDelta Tick
-                ]
+    let
+        keyHandlerSub =
+            Browser.Events.onKeyDown <| Decode.map HandleKeyboardEvent decodeKeyboardEvent
 
-        _ ->
-            Sub.none
+        animationSub =
+            case model of
+                Playing _ ->
+                    Browser.Events.onAnimationFrameDelta Tick
+
+                _ ->
+                    Sub.none
+    in
+    Sub.batch
+        [ keyHandlerSub
+        , animationSub
+        ]
