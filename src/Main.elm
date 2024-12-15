@@ -45,6 +45,7 @@ type alias PlayingModel =
     , nextSeed : Random.Seed
     , sinceLastBadGuyMove : Float
     , sinceLastTackleCheck : Float
+    , tickValue : Float
     , timeRemaining : Float
     , touchdowns : Int
     }
@@ -59,6 +60,7 @@ type alias BetweenDownsModel =
     , nextSeed : Random.Seed
     , protagonist : Coord
     , timeRemaining : Float
+    , tickValue : Float
     , touchdowns : Int
     }
 
@@ -176,6 +178,7 @@ maybeTackleProtagonist model =
                                 , protagonist = playingModel.protagonist
                                 , timeRemaining = playingModel.timeRemaining
                                 , touchdowns = playingModel.touchdowns
+                                , tickValue = 0
                                 }
 
                         else
@@ -191,6 +194,7 @@ maybeTackleProtagonist model =
                                         , protagonist = playingModel.protagonist
                                         , timeRemaining = playingModel.timeRemaining
                                         , touchdowns = playingModel.touchdowns
+                                        , tickValue = 0
                                         }
 
                                 Nothing ->
@@ -249,6 +253,7 @@ progressTime delta model =
                 { playingModel
                     | sinceLastBadGuyMove = playingModel.sinceLastBadGuyMove + delta
                     , sinceLastTackleCheck = playingModel.sinceLastTackleCheck + delta
+                    , tickValue = playingModel.tickValue + delta
                     , timeRemaining = playingModel.timeRemaining - delta
                 }
 
@@ -280,6 +285,7 @@ handleStartDown model =
                 , nextSeed = nextSeed
                 , sinceLastBadGuyMove = 0
                 , sinceLastTackleCheck = 0
+                , tickValue = 0
                 , timeRemaining = 120000
                 , touchdowns = 0
                 }
@@ -310,6 +316,7 @@ handleStartDown model =
                 , nextSeed = newNextSeed
                 , sinceLastBadGuyMove = 0
                 , sinceLastTackleCheck = 0
+                , tickValue = 0
                 , timeRemaining = timeRemaining
                 , touchdowns = touchdowns
                 }
@@ -479,9 +486,10 @@ viewField :
         , protagonist : Coord
         , tackled : Maybe { coord : Coord, previousCoord : Coord }
         , setStartingYard : Int
+        , tickValue : Float
     }
     -> Html msg
-viewField { badGuys, protagonist, tackled, setStartingYard } =
+viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
     let
         rowsToShow =
             List.range
@@ -528,26 +536,81 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
                     case tackled of
                         Nothing ->
                             if isProtagonist then
-                                "P"
+                                Html.div []
+                                    [ Html.img
+                                        [ Attrs.height (floor <| constants.gridSize * 1.2)
+                                        , Attrs.width (floor <| constants.gridSize * 1.2)
+                                        , if modBy 2 (floor (tickValue / 200)) == 0 then
+                                            Attrs.src "src/assets/rabbit-1.svg"
+
+                                          else
+                                            Attrs.src "src/assets/rabbit-2.svg"
+                                        ]
+                                        []
+                                    ]
 
                             else if isBadGuy then
-                                "H"
+                                Html.div []
+                                    [ Html.img
+                                        [ Attrs.height (floor <| constants.gridSize * 1.3)
+                                        , Attrs.width (floor <| constants.gridSize * 1.3)
+                                        , if modBy 2 (floor (tickValue / 200)) == 0 then
+                                            Attrs.src "src/assets/bad-guy-1.svg"
+
+                                          else
+                                            Attrs.src "src/assets/bad-guy-2.svg"
+                                        ]
+                                        []
+                                    ]
 
                             else
-                                ""
+                                Html.text ""
 
                         Just tackler ->
                             if tackler.previousCoord == coord then
-                                "--"
+                                Html.text ""
 
                             else if tackler.coord == coord then
-                                "X"
+                                let
+                                    rotation =
+                                        if tackler.previousCoord.x - tackler.coord.x == 1 then
+                                            Attrs.style "transform" "rotate(90deg)"
+
+                                        else if tackler.previousCoord.x - tackler.coord.x == -1 then
+                                            Attrs.style "transform" "rotate(-90deg)"
+
+                                        else if tackler.previousCoord.y - tackler.coord.y == -1 then
+                                            Attrs.style "transform" "rotate(180deg)"
+
+                                        else
+                                            Attrs.style "transform" "rotate(0)"
+                                in
+                                Html.div []
+                                    [ Html.img
+                                        [ Attrs.height (floor <| constants.gridSize * 1.3)
+                                        , Attrs.width (floor <| constants.gridSize * 1.3)
+                                        , Attrs.src "src/assets/tackled.svg"
+                                        , rotation
+                                        ]
+                                        []
+                                    ]
 
                             else if isBadGuy then
-                                "H"
+                                Html.div []
+                                    [ Html.img
+                                        [ Attrs.height (floor <| constants.gridSize * 1.3)
+                                        , Attrs.width (floor <| constants.gridSize * 1.3)
+                                        , if modBy 2 (floor (tickValue / 200)) == 0 then
+                                            Attrs.src "src/assets/bad-guy-1.svg"
+
+                                          else
+                                            Attrs.src "src/assets/bad-guy-2.svg"
+                                        ]
+                                        []
+                                    ]
 
                             else
-                                ""
+                                Html.text ""
             in
             Html.div
                 [ css
@@ -570,7 +633,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard } =
                         batch []
                     ]
                 ]
-                [ Html.text art ]
+                [ art ]
     in
     Html.flexRow [ css [ justifyContent center, alignItems center ] ]
         [ Html.flexColumn
