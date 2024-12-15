@@ -1,3 +1,7 @@
 .DS_Store
 elm-stuff
 elm.js
+node_modules
+
+dist
+.parcel-cache

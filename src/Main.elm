@@ -541,10 +541,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                         [ Attrs.height (floor <| constants.gridSize * 1.2)
                                         , Attrs.width (floor <| constants.gridSize * 1.2)
                                         , if modBy 2 (floor (tickValue / 200)) == 0 then
-                                            Attrs.src "src/assets/rabbit-1.svg"
+                                            Attrs.src "./assets/rabbit-1.svg"
 
                                           else
-                                            Attrs.src "src/assets/rabbit-2.svg"
+                                            Attrs.src "./assets/rabbit-2.svg"
                                         ]
                                         []
                                     ]
@@ -555,10 +555,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                         [ Attrs.height (floor <| constants.gridSize * 1.3)
                                         , Attrs.width (floor <| constants.gridSize * 1.3)
                                         , if modBy 2 (floor (tickValue / 200)) == 0 then
-                                            Attrs.src "src/assets/bad-guy-1.svg"
+                                            Attrs.src "./assets/bad-guy-1.svg"
 
                                           else
-                                            Attrs.src "src/assets/bad-guy-2.svg"
+                                            Attrs.src "./assets/bad-guy-2.svg"
                                         ]
                                         []
                                     ]
@@ -589,7 +589,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                     [ Html.img
                                         [ Attrs.height (floor <| constants.gridSize * 1.3)
                                         , Attrs.width (floor <| constants.gridSize * 1.3)
-                                        , Attrs.src "src/assets/tackled.svg"
+                                        , Attrs.src "./assets/tackled.svg"
                                         , rotation
                                         ]
                                         []
@@ -601,10 +601,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                         [ Attrs.height (floor <| constants.gridSize * 1.3)
                                         , Attrs.width (floor <| constants.gridSize * 1.3)
                                         , if modBy 2 (floor (tickValue / 200)) == 0 then
-                                            Attrs.src "src/assets/bad-guy-1.svg"
+                                            Attrs.src "./assets/bad-guy-1.svg"
 
                                           else
-                                            Attrs.src "src/assets/bad-guy-2.svg"
+                                            Attrs.src "./assets/bad-guy-2.svg"
                                         ]
                                         []
                                     ]

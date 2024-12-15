@@ -1,0 +1,17 @@
+{
+  "name": "football",
+  "version": "1.0.0",
+  "main": "elm.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dev-dependencies": {},
+  "devDependencies": {
+    "@parcel/transformer-elm": "^2.13.2",
+    "elm": "^0.19.1-5",
+    "parcel": "^2.13.2"
+  }
+}
