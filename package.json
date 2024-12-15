@@ -13,5 +13,8 @@
     "@parcel/transformer-elm": "^2.13.2",
     "elm": "^0.19.1-5",
     "parcel": "^2.13.2"
+  },
+  "dependencies": {
+    "roughjs": "^4.6.6"
   }
 }

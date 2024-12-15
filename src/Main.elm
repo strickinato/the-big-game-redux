@@ -23,8 +23,8 @@ import Random
 constants =
     { badGuyMoveTime = 750
     , tackleCheckTime = 200
-    , gridSize = 48
-    , startingYard = 20
+    , gridSize = 72
+    , startingYard = 90
     , temporaryRandomSeed = Random.initialSeed 30
     }
 
@@ -500,28 +500,58 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
         viewRow y =
             Html.flexRow []
                 ((List.map (\x -> viewCell (Coord.make x y)) <| Tuple.first grid)
-                    ++ [ Html.div
-                            [ css
-                                [ displayFlex
-                                , alignItems center
-                                , height (px constants.gridSize)
-                                , width (px constants.gridSize)
-                                , fontSize (px constants.gridSize)
-                                , backgroundColor (rgb 80 210 90)
-                                , color (rgb 255 255 255)
-                                , borderLeft3 (px 8) solid (rgb 255 255 255)
-                                ]
-                            ]
-                            [ if modBy 5 y == 0 then
-                                Html.span
-                                    [ css [ transform (translateY (px (constants.gridSize / 2))) ]
+                    ++ [ if modBy 5 y == 0 then
+                            Html.node "field-line"
+                                [ Attrs.attribute "size" (String.fromInt constants.gridSize)
+                                , Attrs.attribute "color" "white"
+                                , css
+                                    [ position absolute
+                                    , width (px <| constants.gridSize * 7)
+                                    , height (px <| 5)
+                                    , zIndex (int -1)
                                     ]
-                                    [ Html.text (String.fromInt y) ]
+                                ]
+                                []
 
-                              else
-                                Html.text ""
-                            ]
+                         else
+                            Html.text ""
+                       , if y == setStartingYard + 10 then
+                            Html.node "field-line"
+                                [ Attrs.attribute "size" (String.fromInt constants.gridSize)
+                                , Attrs.attribute "color" "yellow"
+                                , css
+                                    [ position absolute
+                                    , width (px <| constants.gridSize * 7)
+                                    , height (px <| 5)
+                                    , zIndex (int -1)
+                                    ]
+                                ]
+                                []
+
+                         else
+                            Html.text ""
                        ]
+                 -- ++ [ Html.div
+                 --         [ css
+                 --             [ displayFlex
+                 --             , alignItems center
+                 --             , height (px constants.gridSize)
+                 --             , width (px constants.gridSize)
+                 --             , fontSize (px constants.gridSize)
+                 --             , backgroundColor (rgb 80 210 90)
+                 --             , color (rgb 255 255 255)
+                 --             , borderLeft3 (px 8) solid (rgb 255 255 255)
+                 --             ]
+                 --         ]
+                 --         [ if modBy 5 y == 0 then
+                 --             Html.span
+                 --                 [ css [ transform (translateY (px (constants.gridSize / 2))) ]
+                 --                 ]
+                 --                 [ Html.text (String.fromInt y) ]
+                 --           else
+                 --             Html.text ""
+                 --         ]
+                 --    ]
                 )
 
         viewCell coord =
@@ -619,26 +649,36 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                     , justifyContent center
                     , width (px constants.gridSize)
                     , height (px constants.gridSize)
-                    , backgroundColor (rgb 100 220 100)
-                    , border3 (px 1) solid (rgba 100 100 100 0.2)
-                    , if modBy 5 coord.y == 0 then
-                        borderBottom3 (px 10) solid (rgb 255 255 255)
 
-                      else
-                        batch []
-                    , if coord.y == setStartingYard + 10 then
-                        borderBottom3 (px 10) solid (rgb 220 220 100)
-
-                      else
-                        batch []
+                    -- , backgroundColor (rgb 100 220 100)
+                    -- , border3 (px 1) solid (rgba 100 100 100 0.2)
+                    -- , if modBy 5 coord.y == 0 then
+                    --     borderBottom3 (px 10) solid (rgb 255 255 255)
+                    --   else
+                    --     batch []
+                    -- , if coord.y == setStartingYard + 10 then
+                    --     borderBottom3 (px 10) solid (rgb 220 220 100)
+                    --   else
+                    --     batch []
                     ]
                 ]
                 [ art ]
     in
-    Html.flexRow [ css [ justifyContent center, alignItems center ] ]
-        [ Html.flexColumn
-            []
-            (List.map viewRow rowsToShow)
+    Html.div []
+        [ Html.div
+            [ css
+                [ position absolute
+                , height (px <| constants.gridSize * 6)
+                , width (px <| constants.gridSize * 7)
+                , zIndex (int -1)
+                ]
+            ]
+            [ Html.node "field-tile" [ Attrs.attribute "size" (String.fromInt constants.gridSize) ] [] ]
+        , Html.flexRow [ css [ justifyContent center, alignItems center, zIndex (int 1) ] ]
+            [ Html.flexColumn
+                []
+                (List.map viewRow rowsToShow)
+            ]
         ]
 
 
