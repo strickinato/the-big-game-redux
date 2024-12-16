@@ -24,7 +24,7 @@ constants =
     { badGuyMoveTime = 750
     , tackleCheckTime = 200
     , gridSize = 72
-    , startingYard = 90
+    , startingYard = 30
     , temporaryRandomSeed = Random.initialSeed 30
     }
 
@@ -456,7 +456,16 @@ viewPlayingModel playingModel =
 
 viewScoreboard : { a | timeRemaining : Float, touchdowns : Int, footballDown : FootballDown } -> Html msg
 viewScoreboard { timeRemaining, touchdowns, footballDown } =
-    Html.flexColumn []
+    Html.flexColumn
+        [ css
+            [ width (px 400)
+            , padding (px 16)
+            , backgroundColor (rgb 0 0 0)
+            , border3 (px 4) solid (rgb 180 60 60)
+            , color (rgb 0 255 0)
+            , fontFamily sansSerif
+            ]
+        ]
         [ Html.div [] [ Html.text <| formatTime timeRemaining ]
         , Html.div [] [ Html.text <| FootballDown.toString footballDown ]
         , Html.div [] [ Html.text <| "Score: " ++ String.fromInt touchdowns ]
@@ -507,11 +516,38 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                 , css
                                     [ position absolute
                                     , width (px <| constants.gridSize * 7)
-                                    , height (px <| 5)
                                     , zIndex (int -1)
                                     ]
                                 ]
                                 []
+
+                         else
+                            Html.text ""
+                       , if modBy 10 y == 0 then
+                            Html.div
+                                [ css
+                                    [ position absolute
+                                    , transforms
+                                        [ translateX (px (constants.gridSize * 6))
+                                        , rotate (deg -90)
+                                        , translateX (px 42)
+                                        ]
+                                    , displayFlex
+                                    , property "gap" "12px"
+                                    , zIndex (int -1)
+                                    ]
+                                ]
+                                [ Html.node "field-number"
+                                    [ Attrs.attribute "size" (String.fromInt constants.gridSize)
+                                    , Attrs.attribute "number" (String.fromInt (y // 10))
+                                    ]
+                                    []
+                                , Html.node "field-number"
+                                    [ Attrs.attribute "size" (String.fromInt constants.gridSize)
+                                    , Attrs.attribute "number" "0"
+                                    ]
+                                    []
+                                ]
 
                          else
                             Html.text ""
@@ -522,7 +558,6 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                 , css
                                     [ position absolute
                                     , width (px <| constants.gridSize * 7)
-                                    , height (px <| 5)
                                     , zIndex (int -1)
                                     ]
                                 ]
