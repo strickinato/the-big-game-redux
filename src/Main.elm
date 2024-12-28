@@ -62,12 +62,25 @@ type alias BetweenDownsModel =
     , timeRemaining : Float
     , tickValue : Float
     , touchdowns : Int
+    , howPlayEnded : HowPlayEnded
     }
+
+
+type HowPlayEnded
+    = Touchdown
+    | Tackled
 
 
 type alias ReadyModel =
     { nextSeed : Random.Seed
+    , howGameEnded : Maybe HowGameEnded
     }
+
+
+type HowGameEnded
+    = Won { timeRemaining : Float }
+    | LossBySetOfDowns { score : Int }
+    | LossByTimeLimit { score : Int }
 
 
 type Msg
@@ -179,6 +192,7 @@ maybeTackleProtagonist model =
                                 , timeRemaining = playingModel.timeRemaining
                                 , touchdowns = playingModel.touchdowns
                                 , tickValue = 0
+                                , howPlayEnded = Tackled
                                 }
 
                         else
@@ -195,10 +209,11 @@ maybeTackleProtagonist model =
                                         , timeRemaining = playingModel.timeRemaining
                                         , touchdowns = playingModel.touchdowns
                                         , tickValue = 0
+                                        , howPlayEnded = Tackled
                                         }
 
                                 Nothing ->
-                                    Ready { nextSeed = newNextSeed }
+                                    Ready { nextSeed = newNextSeed, howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns }) }
 
                     Nothing ->
                         Playing
@@ -249,13 +264,24 @@ progressTime : Float -> Model -> Model
 progressTime delta model =
     case model of
         Playing playingModel ->
-            Playing
-                { playingModel
-                    | sinceLastBadGuyMove = playingModel.sinceLastBadGuyMove + delta
-                    , sinceLastTackleCheck = playingModel.sinceLastTackleCheck + delta
-                    , tickValue = playingModel.tickValue + delta
-                    , timeRemaining = playingModel.timeRemaining - delta
-                }
+            let
+                newTimeRemaining =
+                    playingModel.timeRemaining - delta
+            in
+            if newTimeRemaining < 0 then
+                Ready
+                    { nextSeed = playingModel.nextSeed
+                    , howGameEnded = Just (LossByTimeLimit { score = playingModel.touchdowns })
+                    }
+
+            else
+                Playing
+                    { playingModel
+                        | sinceLastBadGuyMove = playingModel.sinceLastBadGuyMove + delta
+                        , sinceLastTackleCheck = playingModel.sinceLastTackleCheck + delta
+                        , tickValue = playingModel.tickValue + delta
+                        , timeRemaining = newTimeRemaining
+                    }
 
         _ ->
             model
@@ -292,13 +318,31 @@ handleStartDown model =
             , Cmd.none
             )
 
-        BetweenDowns { protagonist, nextSeed, footballDown, setStartingYard, timeRemaining, touchdowns } ->
+        BetweenDowns { howPlayEnded, protagonist, nextSeed, footballDown, setStartingYard, timeRemaining, touchdowns } ->
             let
-                startingYard =
-                    protagonist.y
+                newStartingYard =
+                    case howPlayEnded of
+                        Touchdown ->
+                            constants.startingYard
+
+                        Tackled ->
+                            protagonist.y
 
                 newProtagonist =
-                    { x = 3, y = startingYard }
+                    case howPlayEnded of
+                        Touchdown ->
+                            { x = 3, y = constants.startingYard }
+
+                        Tackled ->
+                            { x = 3, y = protagonist.y }
+
+                newSetStartingYard =
+                    case howPlayEnded of
+                        Touchdown ->
+                            constants.startingYard
+
+                        Tackled ->
+                            setStartingYard
 
                 ( badGuys, newNextSeed ) =
                     BadGuys.generate
@@ -308,11 +352,11 @@ handleStartDown model =
             in
             ( Playing
                 { badGuys = badGuys
-                , protagonist = protagonist
+                , protagonist = newProtagonist
                 , tackled = Nothing
                 , footballDown = footballDown
-                , startingYard = startingYard
-                , setStartingYard = setStartingYard
+                , startingYard = newStartingYard
+                , setStartingYard = newSetStartingYard
                 , nextSeed = newNextSeed
                 , sinceLastBadGuyMove = 0
                 , sinceLastTackleCheck = 0
@@ -346,8 +390,7 @@ handleProtagonistMove moveFn model =
                             BadGuys.currentBadGuy spotToMoveTo playingModel.badGuys
 
                         scoredTouchdown =
-                            spotToMoveTo.y
-                                == 100
+                            spotToMoveTo.y == 101
                     in
                     case currentlyInSpot of
                         Just _ ->
@@ -356,8 +399,28 @@ handleProtagonistMove moveFn model =
                             )
 
                         Nothing ->
-                            if scoredTouchdown then
-                                ( Ready { nextSeed = playingModel.nextSeed }
+                            if scoredTouchdown && playingModel.touchdowns == 2 then
+                                ( Ready
+                                    { nextSeed = playingModel.nextSeed
+                                    , howGameEnded = Just (Won { timeRemaining = playingModel.timeRemaining })
+                                    }
+                                , Cmd.none
+                                )
+
+                            else if scoredTouchdown then
+                                ( BetweenDowns
+                                    { badGuys = playingModel.badGuys
+                                    , tackled = Nothing
+                                    , footballDown = FootballDown.first
+                                    , startingYard = constants.startingYard
+                                    , setStartingYard = constants.startingYard
+                                    , nextSeed = playingModel.nextSeed
+                                    , protagonist = spotToMoveTo
+                                    , timeRemaining = playingModel.timeRemaining
+                                    , touchdowns = playingModel.touchdowns + 1
+                                    , tickValue = 0
+                                    , howPlayEnded = Touchdown
+                                    }
                                 , Cmd.none
                                 )
 
@@ -379,6 +442,7 @@ init =
     ( Ready
         -- TODO get seed from javascript
         { nextSeed = constants.temporaryRandomSeed
+        , howGameEnded = Nothing
         }
     , Cmd.none
     )
@@ -408,31 +472,57 @@ bounds : Bounds
 bounds =
     { xMin = 0
     , xMax = 6
-    , yMin = 0
-    , yMax = 100
+    , yMin = 1
+    , yMax = 102
     }
 
 
 viewReadyModel : ReadyModel -> Html Msg
-viewReadyModel readyModel =
-    Html.flexRow
-        [ css [ justifyContent center ] ]
-        [ Html.flexColumn []
-            [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
-            , Html.p [] [ Html.text "This is an unfinished homage to The Big Game: Bugs vs Daffy" ]
-            , Html.p [] [ Html.text "The goal is to score 3 touchdowns in 2 minutes" ]
-            , Html.p [] [ Html.text "Space Bar to start" ]
-            , Html.p [] [ Html.text "Arrow Keys to run" ]
-            , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
-            ]
-        ]
+viewReadyModel { howGameEnded } =
+    let
+        container children =
+            Html.flexRow
+                [ css [ justifyContent center ] ]
+                [ Html.flexColumn [] children ]
+    in
+    case howGameEnded of
+        Nothing ->
+            container
+                [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
+                , Html.p [] [ Html.text "This is an unfinished homage to The Big Game: Bugs vs Daffy" ]
+                , Html.p [] [ Html.text "The goal is to score 3 touchdowns in 2 minutes" ]
+                , Html.p [] [ Html.text "Space Bar to start" ]
+                , Html.p [] [ Html.text "Arrow Keys to run" ]
+                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                ]
+
+        Just (Won { timeRemaining }) ->
+            container
+                [ Html.text "Yay" ]
+
+        Just (LossBySetOfDowns { score }) ->
+            container
+                [ Html.text "Yay" ]
+
+        Just (LossByTimeLimit { score }) ->
+            container
+                [ Html.text "Yay" ]
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
-viewBetweenDowns ({ tackled, footballDown, protagonist, startingYard } as betweenDownsModel) =
+viewBetweenDowns ({ howPlayEnded, tackled, footballDown, protagonist, startingYard, touchdowns } as betweenDownsModel) =
     Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
         [ viewField betweenDownsModel
         , viewScoreboard betweenDownsModel
+        , if howPlayEnded == Touchdown then
+            Html.flexColumn []
+                [ Html.div [] [ Html.text <| "Touchdown!!" ]
+                , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
+                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                ]
+
+          else
+            Html.text ""
         , case tackled of
             Just _ ->
                 Html.flexColumn []
@@ -454,8 +544,8 @@ viewPlayingModel playingModel =
         ]
 
 
-viewScoreboard : { a | timeRemaining : Float, touchdowns : Int, footballDown : FootballDown } -> Html msg
-viewScoreboard { timeRemaining, touchdowns, footballDown } =
+viewScoreboard : { a | timeRemaining : Float, touchdowns : Int, footballDown : FootballDown, startingYard : Int } -> Html msg
+viewScoreboard { timeRemaining, touchdowns, footballDown, startingYard } =
     Html.flexColumn
         [ css
             [ width (px 400)
@@ -469,6 +559,7 @@ viewScoreboard { timeRemaining, touchdowns, footballDown } =
         [ Html.div [] [ Html.text <| formatTime timeRemaining ]
         , Html.div [] [ Html.text <| FootballDown.toString footballDown ]
         , Html.div [] [ Html.text <| "Score: " ++ String.fromInt touchdowns ]
+        , Html.div [] [ Html.text <| "Yard: " ++ String.fromInt startingYard ]
         ]
 
 
