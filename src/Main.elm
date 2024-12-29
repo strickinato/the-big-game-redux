@@ -610,6 +610,7 @@ viewScoreboard { timeRemaining, touchdowns, footballDown, startingYard } =
             , border3 (px 4) solid (rgb 180 60 60)
             , color (rgb 0 255 0)
             , fontFamily monospace
+            , fontSize (px 22)
             ]
         ]
         [ Html.pre [] [ Html.text <| "Time:  " ++ formatTime timeRemaining ]
