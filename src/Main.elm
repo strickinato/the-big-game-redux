@@ -115,10 +115,14 @@ type Msg
     | Tick Float
 
 
-main : Program () Model Msg
+type alias Flags =
+    { seed : Int }
+
+
+main : Program Flags Model Msg
 main =
     Browser.element
-        { init = \_ -> init
+        { init = init
         , update = update
         , view = view >> Html.toUnstyled
         , subscriptions = subscriptions
@@ -459,11 +463,10 @@ handleProtagonistMove moveFn model =
             ( model, Cmd.none )
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Flags -> ( Model, Cmd Msg )
+init { seed } =
     ( Ready
-        -- TODO get seed from javascript
-        { nextSeed = constants.temporaryRandomSeed
+        { nextSeed = Random.initialSeed seed
         , howGameEnded = Nothing
         }
     , Cmd.none

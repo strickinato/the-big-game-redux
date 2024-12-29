@@ -3,7 +3,9 @@ import rough from 'roughjs';
 import { Elm } from './Main.elm'
 
 const node = document.getElementById('app')
-const flags = {}
+const flags = {
+  seed: Date.now(),
+}
 const app = Elm.Main.init({
   node,
   flags,
