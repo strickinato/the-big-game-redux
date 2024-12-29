@@ -806,7 +806,9 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
 
                          else
                             Html.text ""
-                       , if y == setStartingYard + 10 then
+                       , if y == setStartingYard + 9 then
+                            -- NOTE - this is 9 instead of 10 because it's more satisfying to CROSS the line
+                            --        so we render the yellow line off-by-one closer
                             Html.node "field-line"
                                 [ Attrs.attribute "size" (String.fromInt constants.gridSize)
                                 , Attrs.attribute "color" "yellow"
