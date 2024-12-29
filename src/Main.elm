@@ -34,19 +34,19 @@ difficultyMap numberOfTouchdowns =
         0 ->
             { tackleCheckFrequency = 250
             , tackleChances = [ ( Coord.moveUp, 0.4 ), ( Coord.moveLeft, 0.3 ), ( Coord.moveRight, 0.3 ), ( Coord.moveDown, 0.1 ) ]
-            , numBadGuys = 150
+            , numBadGuys = 120
             }
 
         1 ->
             { tackleCheckFrequency = 200
             , tackleChances = [ ( Coord.moveUp, 0.5 ), ( Coord.moveLeft, 0.4 ), ( Coord.moveRight, 0.4 ), ( Coord.moveDown, 0.3 ) ]
-            , numBadGuys = 160
+            , numBadGuys = 140
             }
 
         _ ->
             { tackleCheckFrequency = 175
             , tackleChances = [ ( Coord.moveUp, 0.6 ), ( Coord.moveLeft, 0.5 ), ( Coord.moveRight, 0.5 ), ( Coord.moveDown, 0.3 ) ]
-            , numBadGuys = 170
+            , numBadGuys = 150
             }
 
 
