@@ -686,7 +686,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                 ]
                                 [ Html.node "field-number"
                                     [ Attrs.attribute "size" (String.fromInt constants.gridSize)
-                                    , Attrs.attribute "number" (String.fromInt (y // 10))
+                                    , Attrs.attribute "number" (String.fromInt <| 5 - (abs <| (y // 10) - 5))
                                     ]
                                     []
                                 , Html.node "field-number"
