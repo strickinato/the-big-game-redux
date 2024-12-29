@@ -12,12 +12,8 @@ type BadGuys
     = BadGuys (Dict ( Int, Int ) { previousSpot : ( Int, Int ) })
 
 
-numBadGuys =
-    200
-
-
-generate : Coord -> Bounds -> Random.Seed -> ( BadGuys, Random.Seed )
-generate protagonistCoord bounds seed =
+generate : Coord -> Int -> Bounds -> Random.Seed -> ( BadGuys, Random.Seed )
+generate protagonistCoord numBadGuys bounds seed =
     Random.step
         (Random.list numBadGuys (generator protagonistCoord)
             |> Random.map (List.map (\c -> ( c, { previousSpot = c } )))

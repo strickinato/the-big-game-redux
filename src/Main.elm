@@ -33,16 +33,19 @@ difficultyMap numberOfTouchdowns =
         0 ->
             { tackleCheckFrequency = 250
             , tackleChances = [ ( Coord.moveUp, 0.4 ), ( Coord.moveLeft, 0.3 ), ( Coord.moveRight, 0.3 ), ( Coord.moveDown, 0.1 ) ]
+            , numBadGuys = 150
             }
 
         1 ->
             { tackleCheckFrequency = 200
             , tackleChances = [ ( Coord.moveUp, 0.5 ), ( Coord.moveLeft, 0.4 ), ( Coord.moveRight, 0.4 ), ( Coord.moveDown, 0.3 ) ]
+            , numBadGuys = 160
             }
 
         _ ->
             { tackleCheckFrequency = 175
             , tackleChances = [ ( Coord.moveUp, 0.6 ), ( Coord.moveLeft, 0.5 ), ( Coord.moveRight, 0.5 ), ( Coord.moveDown, 0.3 ) ]
+            , numBadGuys = 170
             }
 
 
@@ -318,6 +321,7 @@ handleStartDown model =
                 ( badGuys, nextSeed ) =
                     BadGuys.generate
                         protagonist
+                        (difficultyMap 0).numBadGuys
                         bounds
                         readyModel.nextSeed
             in
@@ -374,6 +378,7 @@ handleStartDown model =
                 ( badGuys, newNextSeed ) =
                     BadGuys.generate
                         newProtagonist
+                        (difficultyMap touchdowns).numBadGuys
                         bounds
                         nextSeed
             in
