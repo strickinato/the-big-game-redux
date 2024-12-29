@@ -22,11 +22,28 @@ import Random
 
 constants =
     { badGuyMoveTime = 750
-    , tackleCheckTime = 200
     , gridSize = 72
     , startingYard = 30
     , temporaryRandomSeed = Random.initialSeed 30
     }
+
+
+difficultyMap numberOfTouchdowns =
+    case numberOfTouchdowns of
+        0 ->
+            { tackleCheckFrequency = 200
+            , tackleChances = [ ( Coord.moveUp, 0.5 ), ( Coord.moveLeft, 0.4 ), ( Coord.moveRight, 0.4 ), ( Coord.moveDown, 0.2 ) ]
+            }
+
+        1 ->
+            { tackleCheckFrequency = 150
+            , tackleChances = [ ( Coord.moveUp, 0.6 ), ( Coord.moveLeft, 0.5 ), ( Coord.moveRight, 0.5 ), ( Coord.moveDown, 0.3 ) ]
+            }
+
+        _ ->
+            { tackleCheckFrequency = 100
+            , tackleChances = [ ( Coord.moveUp, 0.6 ), ( Coord.moveLeft, 0.5 ), ( Coord.moveRight, 0.5 ), ( Coord.moveDown, 0.3 ) ]
+            }
 
 
 type Model
@@ -159,17 +176,20 @@ maybeTackleProtagonist model =
     case model of
         Playing playingModel ->
             let
+                { tackleChances, tackleCheckFrequency } =
+                    difficultyMap playingModel.touchdowns
+
                 notTackled =
                     Maybe.isNothing playingModel.tackled
 
                 shouldPerformTackleCheck =
-                    playingModel.sinceLastTackleCheck > constants.tackleCheckTime
+                    playingModel.sinceLastTackleCheck > tackleCheckFrequency
 
                 ( probability, newNextSeed ) =
                     Random.step (Random.float 0 1) playingModel.nextSeed
 
                 maybeTackler =
-                    [ ( Coord.moveUp, 0.5 ), ( Coord.moveLeft, 0.4 ), ( Coord.moveRight, 0.4 ), ( Coord.moveDown, 0.2 ) ]
+                    tackleChances
                         |> List.map (Tuple.mapFirst (\fn -> fn playingModel.protagonist))
                         |> List.filter (\( coord, tackleChance ) -> BadGuys.member coord playingModel.badGuys && (tackleChance > probability))
                         |> List.head
