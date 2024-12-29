@@ -34,6 +34,15 @@ moveRight coord =
     { coord | x = coord.x + 1 }
 
 
+distanceBetween : Coord -> Coord -> Float
+distanceBetween coordA coordB =
+    (+)
+        ((coordA.x - coordB.x) ^ 2)
+        ((coordA.y - coordB.y) ^ 2)
+        |> toFloat
+        |> sqrt
+
+
 constrain : Bounds -> Coord -> Coord
 constrain { xMin, yMin, xMax, yMax } { x, y } =
     { x = clamp xMin xMax x

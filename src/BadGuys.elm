@@ -84,9 +84,13 @@ step seed bounds protagonist (BadGuys badGuys) =
 
 validMovesForBadGuy : Bounds -> Coord -> Coord -> BadGuys -> List Coord
 validMovesForBadGuy bounds protagonist testCoord badGuys =
+    let
+        movedCloser coord =
+            Coord.distanceBetween protagonist coord < Coord.distanceBetween protagonist testCoord
+    in
     [ Coord.moveUp, Coord.moveDown, Coord.moveLeft, Coord.moveRight ]
         |> List.map (\fn -> fn testCoord |> Coord.constrain bounds)
-        |> List.filter (\c -> not (member c badGuys) && c /= protagonist)
+        |> List.filter (\c -> not (member c badGuys) && c /= protagonist && movedCloser c)
 
 
 member : Coord -> BadGuys -> Bool
