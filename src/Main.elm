@@ -18,6 +18,7 @@ import Keyboard.Key as Key
 import List.Extra as List
 import Maybe.Extra as Maybe
 import Random
+import String.Extra as String
 
 
 constants =
@@ -512,7 +513,9 @@ viewReadyModel { howGameEnded } =
         Nothing ->
             container
                 [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
-                , Html.p [] [ Html.text "Score 3 touchdowns in 2 minutes. The goons are playing defense. Oh, and it'll get harder after each toughdown!" ]
+                , Html.p [] [ Html.text "It was supposed to be a fair football game, but it looks like it's going to be you against a whoooole lotta goons." ]
+                , Html.p [] [ Html.text "Run or Pass 10 yards to get a First Down" ]
+                , Html.p [] [ Html.text "Score 3 Touchdowns to Win!" ]
                 , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
                 , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
                 ]
@@ -563,12 +566,18 @@ viewReadyModel { howGameEnded } =
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
-viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touchdowns } as betweenDownsModel) =
+viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touchdowns, setStartingYard } as betweenDownsModel) =
     let
         info =
             let
                 ( infoWidth, infoHeight ) =
                     ( constants.gridSize * 4, constants.gridSize * 2 )
+
+                yardsGained =
+                    protagonist.y - startingYard
+
+                yardsRemaining =
+                    setStartingYard + 10 - protagonist.y
             in
             Html.div
                 [ css
@@ -581,15 +590,46 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                     [ case howPlayEnded of
                         Touchdown ->
                             Html.flexColumn []
-                                [ Html.div [] [ Html.text <| "Touchdown!!" ]
-                                , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
+                                [ Html.h2 [] [ Html.text <| "🎉Touchdown🎉" ]
+                                , Html.p [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
                                 , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
                                 ]
 
                         Tackled tackled ->
                             Html.flexColumn []
-                                [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
-                                , Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString footballDown ++ " Down" ]
+                                [ Html.h2 []
+                                    [ Html.text <|
+                                        case footballDown of
+                                            FootballDown.FirstDown ->
+                                                "First Down! 🎉"
+
+                                            FootballDown.SecondDown ->
+                                                "Second Down"
+
+                                            FootballDown.ThirdDown ->
+                                                "Third Down"
+
+                                            FootballDown.FourthDown ->
+                                                "Fouth Down 😬"
+                                    ]
+                                , Html.p []
+                                    [ Html.text <|
+                                        if yardsGained == 0 then
+                                            "No gain."
+
+                                        else if yardsGained > 0 then
+                                            "You gained " ++ String.pluralize "yard" "yards" yardsGained ++ "."
+
+                                        else
+                                            "You lost " ++ String.pluralize "yard" "yards" yardsGained ++ "."
+                                    ]
+                                , Html.p []
+                                    [ if footballDown /= FootballDown.FirstDown then
+                                        Html.text (String.pluralize "yard" "yards" yardsRemaining ++ " to go.")
+
+                                      else
+                                        Html.text ""
+                                    ]
                                 , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
                                 ]
 
@@ -639,8 +679,8 @@ viewPlayingModel playingModel =
         ]
 
 
-viewScoreboard : { a | timeRemaining : Float, touchdowns : Int, footballDown : FootballDown, startingYard : Int } -> Html msg
-viewScoreboard { timeRemaining, touchdowns, footballDown, startingYard } =
+viewScoreboard : { a | timeRemaining : Float, touchdowns : Int, footballDown : FootballDown, setStartingYard : Int, startingYard : Int } -> Html msg
+viewScoreboard { timeRemaining, touchdowns, footballDown, setStartingYard, startingYard } =
     Html.flexColumn
         [ css
             [ width (px 400)
@@ -655,7 +695,7 @@ viewScoreboard { timeRemaining, touchdowns, footballDown, startingYard } =
         [ Html.pre [] [ Html.text <| "Time:  " ++ formatTime timeRemaining ]
         , Html.pre [] [ Html.text <| "Score: " ++ String.fromInt touchdowns ]
         , Html.pre [] [ Html.text <| "Down:  " ++ FootballDown.toString footballDown ]
-        , Html.pre [] [ Html.text <| "Yards: " ++ String.fromInt startingYard ]
+        , Html.pre [] [ Html.text <| "Yards: " ++ String.fromInt (setStartingYard + 10 - startingYard) ]
         ]
 
 
