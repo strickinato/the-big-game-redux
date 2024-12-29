@@ -39,9 +39,45 @@ const rect = rc.rectangle(
 domSvg.appendChild(rect)
 
 
+class FieldTriangle extends HTMLElement {
+  static observedAttributes = ["direction"];
+
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    const direction = this.getAttribute("direction")
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute("height", "12px")
+    svg.setAttribute("width", "18px")
+
+    const vertices =
+        direction === "right"
+          ? [[0,0],[0,12],[18, 6], [0, 0]]
+          : [[18,0],[18,12],[0, 6], [18, 0]]
+
+
+    const rc = rough.svg(svg);
+    const tri = rc.polygon(vertices, {
+      stroke: "black",
+      fill: "white",
+      fillStyle: "solid",
+    });
+    svg.appendChild(tri);
+
+    this.appendChild(svg)
+  }
+}
+if (customElements.get('field-triangle') == null) {
+  customElements.define("field-triangle", FieldTriangle);
+}
+
 class RoughModal extends HTMLElement {
   static observedAttributes = ["height"];
   static observedAttributes = ["width"];
+  static observedAttributes = ["transparent"];
 
   constructor() {
     super();
@@ -73,6 +109,7 @@ class RoughModal extends HTMLElement {
 if (customElements.get( 'rough-modal' ) == null) {
   customElements.define("rough-modal", RoughModal);
 }
+
 
 
 

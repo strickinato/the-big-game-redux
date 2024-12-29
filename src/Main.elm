@@ -648,6 +648,21 @@ viewField :
     -> Html msg
 viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
     let
+        triangle direction =
+            Html.node "field-triangle"
+                [ css
+                    [ position absolute
+                    , top (px 12)
+                    , if direction == "left" then
+                        left (px -24)
+
+                      else
+                        right (px -20)
+                    ]
+                , Attrs.attribute "direction" direction
+                ]
+                []
+
         rowsToShow =
             List.range
                 (protagonist.y - 1)
@@ -671,7 +686,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
 
                          else
                             Html.text ""
-                       , if modBy 10 y == 0 then
+                       , -- This protagonist /= 6 nonsense
+                         -- is kinda a dumb hack so the field numbers aren't don't
+                         -- get rendered off the field
+                         if modBy 10 y == 0 && (modBy 10 protagonist.y /= 6) && y /= 100 then
                             Html.div
                                 [ css
                                     [ position absolute
@@ -685,7 +703,12 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                     , zIndex (int -1)
                                     ]
                                 ]
-                                [ Html.node "field-number"
+                                [ if y < 50 then
+                                    triangle "left"
+
+                                  else
+                                    Html.text ""
+                                , Html.node "field-number"
                                     [ Attrs.attribute "size" (String.fromInt constants.gridSize)
                                     , Attrs.attribute "number" (String.fromInt <| 5 - (abs <| (y // 10) - 5))
                                     ]
@@ -695,6 +718,11 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                                     , Attrs.attribute "number" "0"
                                     ]
                                     []
+                                , if y > 50 then
+                                    triangle "right"
+
+                                  else
+                                    Html.text ""
                                 ]
 
                          else
@@ -811,6 +839,14 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                     , justifyContent center
                     , width (px constants.gridSize)
                     , height (px constants.gridSize)
+                    , if coord.y > 102 then
+                        backgroundColor (rgba 255 0 0 1)
+
+                      else if coord.y > 100 then
+                        backgroundColor (rgba 255 0 0 0.2)
+
+                      else
+                        batch []
                     ]
                 ]
                 [ art ]
