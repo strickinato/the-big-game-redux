@@ -26,6 +26,7 @@ constants =
     , gridSize = 72
     , startingYard = 30
     , temporaryRandomSeed = Random.initialSeed 30
+    , throwLengthConstant = 1000
     }
 
 
@@ -59,6 +60,7 @@ type Model
 type alias PlayingModel =
     { badGuys : BadGuys
     , protagonist : Coord
+    , playType : PlayType
     , footballDown : FootballDown
     , startingYard : Int
     , setStartingYard : Int
@@ -87,12 +89,13 @@ type alias BetweenDownsModel =
 
 type PlayType
     = RunPlay
-    | PassPlay { ballTarget : Coord }
+    | PassPlay { ballTarget : Coord, caught : Bool }
 
 
 type HowPlayEnded
     = Touchdown
     | Tackled { coord : Coord, previousCoord : Coord }
+    | Incomplete
     | FirstPlay
 
 
@@ -111,7 +114,7 @@ type HowGameEnded
 type Msg
     = NoOp
     | HandleKeyboardEvent KeyboardEvent
-    | StartDown
+    | StartDown { run : Bool }
     | Tick Float
 
 
@@ -158,14 +161,20 @@ update msg model =
                 Key.L ->
                     handleProtagonistMove Coord.moveRight model
 
+                Key.P ->
+                    handleStartDown False model
+
+                Key.R ->
+                    handleStartDown True model
+
                 Key.Spacebar ->
-                    handleStartDown model
+                    handleStartDown True model
 
                 _ ->
                     ( model, Cmd.none )
 
-        StartDown ->
-            handleStartDown model
+        StartDown { run } ->
+            handleStartDown run model
 
         Tick delta ->
             handleTick delta model
@@ -191,8 +200,16 @@ maybeTackleProtagonist model =
                 { tackleChances, tackleCheckFrequency } =
                     difficultyMap playingModel.touchdowns
 
+                playerTacklable =
+                    case playingModel.playType of
+                        RunPlay ->
+                            True
+
+                        PassPlay { caught } ->
+                            caught
+
                 shouldPerformTackleCheck =
-                    playingModel.sinceLastTackleCheck > tackleCheckFrequency
+                    playingModel.sinceLastTackleCheck > tackleCheckFrequency && playerTacklable
 
                 ( probability, newNextSeed ) =
                     Random.step (Random.float 0 1) playingModel.nextSeed
@@ -315,8 +332,8 @@ progressTime delta model =
             model
 
 
-handleStartDown : Model -> ( Model, Cmd Msg )
-handleStartDown model =
+handleStartDown : Bool -> Model -> ( Model, Cmd Msg )
+handleStartDown isRun model =
     case model of
         Ready readyModel ->
             let
@@ -345,7 +362,7 @@ handleStartDown model =
             , Cmd.none
             )
 
-        BetweenDowns { howPlayEnded, protagonist, nextSeed, footballDown, setStartingYard, timeRemaining, touchdowns } ->
+        BetweenDowns { howPlayEnded, protagonist, nextSeed, footballDown, setStartingYard, timeRemaining, touchdowns, startingYard } ->
             let
                 newStartingYard =
                     case howPlayEnded of
@@ -354,6 +371,9 @@ handleStartDown model =
 
                         FirstPlay ->
                             constants.startingYard
+
+                        Incomplete ->
+                            startingYard
 
                         Tackled _ ->
                             protagonist.y
@@ -366,6 +386,9 @@ handleStartDown model =
                         FirstPlay ->
                             { x = 3, y = constants.startingYard }
 
+                        Incomplete ->
+                            { x = 3, y = startingYard }
+
                         Tackled _ ->
                             { x = 3, y = protagonist.y }
 
@@ -377,15 +400,32 @@ handleStartDown model =
                         FirstPlay ->
                             constants.startingYard
 
+                        Incomplete ->
+                            setStartingYard
+
                         Tackled _ ->
                             setStartingYard
 
-                ( badGuys, newNextSeed ) =
+                ( badGuys, steppedNextSeed ) =
                     BadGuys.generate
                         newProtagonist
                         (difficultyMap touchdowns).numBadGuys
                         bounds
                         nextSeed
+
+                ( playType, newNextSeed ) =
+                    if isRun then
+                        ( RunPlay, steppedNextSeed )
+
+                    else
+                        let
+                            ( ballTarget, steppedSeed ) =
+                                generateThrow protagonist steppedNextSeed
+                                    |> Debug.log "throw with seed"
+                        in
+                        ( PassPlay { ballTarget = ballTarget, caught = False }
+                        , steppedSeed
+                        )
             in
             ( Playing
                 { badGuys = badGuys
@@ -399,12 +439,28 @@ handleStartDown model =
                 , tickValue = 0
                 , timeRemaining = timeRemaining
                 , touchdowns = touchdowns
+                , playType = playType
                 }
             , Cmd.none
             )
 
         Playing playingModel ->
             ( Playing playingModel, Cmd.none )
+
+
+generateThrow : Coord -> Random.Seed -> ( Coord, Random.Seed )
+generateThrow protagonist seed =
+    let
+        randomX =
+            Random.int bounds.xMin bounds.xMax
+
+        randomY =
+            Random.int (protagonist.y + 8) (protagonist.y + 18)
+                |> Random.map (min bounds.yMax)
+    in
+    Random.step
+        (Random.map2 Coord.make randomX randomY)
+        seed
 
 
 handleProtagonistMove : (Coord -> Coord) -> Model -> ( Model, Cmd Msg )
@@ -520,7 +576,9 @@ viewReadyModel { howGameEnded } =
                 , Html.p [] [ Html.text "Run or Pass 10 yards to get a First Down" ]
                 , Html.p [] [ Html.text "Score 3 Touchdowns to Win!" ]
                 , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
-                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+
+                -- TODO StartDown here should be "NewGame" maybe
+                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "hut hike" ]
                 ]
 
         Just (Won { timeRemaining }) ->
@@ -528,7 +586,9 @@ viewReadyModel { howGameEnded } =
                 [ Html.h2 [] [ Html.text "🎉🎉🎉🎉🎉🎉" ]
                 , Html.p [] [ Html.text "You won!!" ]
                 , Html.p [] [ Html.text <| "And you did it with " ++ formatTime timeRemaining ++ " remaining!" ]
-                , Html.button [ Events.onClick StartDown ] [ Html.text "play again?" ]
+
+                -- TODO StartDown here should be "NewGame" maybe
+                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "play again?" ]
                 ]
 
         Just (LossBySetOfDowns { score }) ->
@@ -546,7 +606,9 @@ viewReadyModel { howGameEnded } =
             container
                 [ Html.h2 [] [ Html.text "OUCH!! The goons had your number!" ]
                 , Html.h2 [] [ Html.text text ]
-                , Html.button [ Events.onClick StartDown ] [ Html.text "try again?" ]
+
+                -- TODO StartDown here should be "NewGame" maybe
+                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "try again?" ]
                 ]
 
         Just (LossByTimeLimit { score }) ->
@@ -564,13 +626,21 @@ viewReadyModel { howGameEnded } =
             container
                 [ Html.h2 [] [ Html.text "TOO SLOW!!" ]
                 , Html.p [] [ Html.text text ]
-                , Html.button [ Events.onClick StartDown ] [ Html.text "try again?" ]
+
+                -- TODO StartDown here should be "NewGame" maybe
+                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "try again?" ]
                 ]
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
 viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touchdowns, setStartingYard } as betweenDownsModel) =
     let
+        playButtons =
+            Html.flexRow [ css [ justifyContent spaceAround ] ]
+                [ Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "RUN" ]
+                , Html.button [ Events.onClick (StartDown { run = False }) ] [ Html.text "PASS" ]
+                ]
+
         info =
             let
                 ( infoWidth, infoHeight ) =
@@ -595,7 +665,7 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                             Html.flexColumn []
                                 [ Html.h2 [] [ Html.text <| "🎉Touchdown🎉" ]
                                 , Html.p [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
-                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                , playButtons
                                 ]
 
                         Tackled tackled ->
@@ -633,13 +703,21 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                                       else
                                         Html.text ""
                                     ]
-                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                , playButtons
+                                ]
+
+                        Incomplete ->
+                            Html.flexColumn [ css [ Html.gap 16 ] ]
+                                [ Html.h2 [] [ Html.text <| "Incomplete" ]
+                                , Html.p [] [ Html.text "No gain." ]
+                                , Html.p [] [ Html.text (String.pluralize "yard" "yards" yardsRemaining ++ " to go.") ]
+                                , playButtons
                                 ]
 
                         FirstPlay ->
-                            Html.flexColumn []
+                            Html.flexColumn [ css [ Html.gap 16 ] ]
                                 [ Html.div [] [ Html.text <| "Get ready to run the ball!" ]
-                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                , playButtons
                                 ]
                     ]
                 ]
@@ -657,8 +735,12 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                         Touchdown ->
                             Nothing
 
+                        Incomplete ->
+                            Nothing
+
                         FirstPlay ->
                             Nothing
+                , maybePlayType = Nothing
                 , setStartingYard = betweenDownsModel.setStartingYard
                 , tickValue = betweenDownsModel.tickValue
                 }
@@ -677,6 +759,7 @@ viewPlayingModel playingModel =
             , tackled = Nothing
             , setStartingYard = playingModel.setStartingYard
             , tickValue = playingModel.tickValue
+            , maybePlayType = Just playingModel.playType
             }
         , viewScoreboard playingModel
         ]
@@ -726,9 +809,10 @@ viewField :
         , tackled : Maybe { coord : Coord, previousCoord : Coord }
         , setStartingYard : Int
         , tickValue : Float
+        , maybePlayType : Maybe PlayType
     }
     -> Html msg
-viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
+viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePlayType } =
     let
         triangle direction =
             Html.node "field-triangle"
@@ -836,6 +920,21 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                 isBadGuy =
                     BadGuys.member coord badGuys
 
+                viewTarget =
+                    case maybePlayType of
+                        Just (PassPlay { ballTarget, caught }) ->
+                            if not caught && ballTarget == coord then
+                                Html.div [ css [ position absolute ] ] [ Html.text "X" ]
+
+                            else
+                                Html.text ""
+
+                        Just RunPlay ->
+                            Html.text ""
+
+                        Nothing ->
+                            Html.text ""
+
                 art =
                     case tackled of
                         Nothing ->
@@ -923,6 +1022,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                     , justifyContent center
                     , width (px constants.gridSize)
                     , height (px constants.gridSize)
+                    , position relative
                     , if coord.y > 102 then
                         backgroundColor (rgba 255 0 0 1)
 
@@ -933,7 +1033,13 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                         batch []
                     ]
                 ]
-                [ art ]
+                [ art, viewTarget ]
+
+        viewBall =
+            -- TODO:
+            --  - We need the trajectory towards it's spot
+            --    And we need to know how long since throw
+            Html.div [] [ Html.text "O" ]
     in
     Html.div []
         [ Html.div
@@ -953,6 +1059,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                 []
                 (List.map viewRow rowsToShow)
             ]
+        , viewBall
         ]
 
 
