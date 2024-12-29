@@ -55,7 +55,6 @@ type Model
 type alias PlayingModel =
     { badGuys : BadGuys
     , protagonist : Coord
-    , tackled : Maybe { coord : Coord, previousCoord : Coord }
     , footballDown : FootballDown
     , startingYard : Int
     , setStartingYard : Int
@@ -70,7 +69,6 @@ type alias PlayingModel =
 
 type alias BetweenDownsModel =
     { badGuys : BadGuys
-    , tackled : Maybe { coord : Coord, previousCoord : Coord }
     , footballDown : FootballDown
     , startingYard : Int
     , setStartingYard : Int
@@ -83,9 +81,15 @@ type alias BetweenDownsModel =
     }
 
 
+type PlayType
+    = RunPlay
+    | PassPlay { ballTarget : Coord }
+
+
 type HowPlayEnded
     = Touchdown
-    | Tackled
+    | Tackled { coord : Coord, previousCoord : Coord }
+    | FirstPlay
 
 
 type alias ReadyModel =
@@ -179,9 +183,6 @@ maybeTackleProtagonist model =
                 { tackleChances, tackleCheckFrequency } =
                     difficultyMap playingModel.touchdowns
 
-                notTackled =
-                    Maybe.isNothing playingModel.tackled
-
                 shouldPerformTackleCheck =
                     playingModel.sinceLastTackleCheck > tackleCheckFrequency
 
@@ -197,13 +198,12 @@ maybeTackleProtagonist model =
                 gotFirstDown =
                     playingModel.protagonist.y >= playingModel.setStartingYard + 10
             in
-            if notTackled && shouldPerformTackleCheck then
+            if shouldPerformTackleCheck then
                 case maybeTackler of
                     Just tackler ->
                         if gotFirstDown then
                             BetweenDowns
                                 { badGuys = playingModel.badGuys
-                                , tackled = Just { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                 , footballDown = FootballDown.first
                                 , startingYard = playingModel.startingYard
                                 , setStartingYard = playingModel.protagonist.y
@@ -212,7 +212,7 @@ maybeTackleProtagonist model =
                                 , timeRemaining = playingModel.timeRemaining
                                 , touchdowns = playingModel.touchdowns
                                 , tickValue = 0
-                                , howPlayEnded = Tackled
+                                , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                 }
 
                         else
@@ -220,7 +220,6 @@ maybeTackleProtagonist model =
                                 Just nextDown ->
                                     BetweenDowns
                                         { badGuys = playingModel.badGuys
-                                        , tackled = Just { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                         , footballDown = nextDown
                                         , startingYard = playingModel.startingYard
                                         , setStartingYard = playingModel.setStartingYard
@@ -229,7 +228,7 @@ maybeTackleProtagonist model =
                                         , timeRemaining = playingModel.timeRemaining
                                         , touchdowns = playingModel.touchdowns
                                         , tickValue = 0
-                                        , howPlayEnded = Tackled
+                                        , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                         }
 
                                 Nothing ->
@@ -254,13 +253,10 @@ moveBadGuysIfItsTime model =
     case model of
         Playing playingModel ->
             let
-                notTackled =
-                    Maybe.isNothing playingModel.tackled
-
                 shouldHandleBadGuyMove =
                     playingModel.sinceLastBadGuyMove > constants.badGuyMoveTime
             in
-            if notTackled && shouldHandleBadGuyMove then
+            if shouldHandleBadGuyMove then
                 let
                     ( newBadGuyPositions, nextSeed ) =
                         playingModel.badGuys
@@ -325,19 +321,17 @@ handleStartDown model =
                         bounds
                         readyModel.nextSeed
             in
-            ( Playing
+            ( BetweenDowns
                 { badGuys = badGuys
                 , protagonist = protagonist
-                , tackled = Nothing
                 , footballDown = FootballDown.first
                 , startingYard = constants.startingYard
                 , setStartingYard = constants.startingYard
                 , nextSeed = nextSeed
-                , sinceLastBadGuyMove = 0
-                , sinceLastTackleCheck = 0
                 , tickValue = 0
                 , timeRemaining = 120000
                 , touchdowns = 0
+                , howPlayEnded = FirstPlay
                 }
             , Cmd.none
             )
@@ -349,7 +343,10 @@ handleStartDown model =
                         Touchdown ->
                             constants.startingYard
 
-                        Tackled ->
+                        FirstPlay ->
+                            constants.startingYard
+
+                        Tackled _ ->
                             protagonist.y
 
                 newProtagonist =
@@ -357,7 +354,10 @@ handleStartDown model =
                         Touchdown ->
                             { x = 3, y = constants.startingYard }
 
-                        Tackled ->
+                        FirstPlay ->
+                            { x = 3, y = constants.startingYard }
+
+                        Tackled _ ->
                             { x = 3, y = protagonist.y }
 
                 newSetStartingYard =
@@ -365,7 +365,10 @@ handleStartDown model =
                         Touchdown ->
                             constants.startingYard
 
-                        Tackled ->
+                        FirstPlay ->
+                            constants.startingYard
+
+                        Tackled _ ->
                             setStartingYard
 
                 ( badGuys, newNextSeed ) =
@@ -377,7 +380,6 @@ handleStartDown model =
             ( Playing
                 { badGuys = badGuys
                 , protagonist = newProtagonist
-                , tackled = Nothing
                 , footballDown = footballDown
                 , startingYard = newStartingYard
                 , setStartingYard = newSetStartingYard
@@ -399,63 +401,53 @@ handleProtagonistMove : (Coord -> Coord) -> Model -> ( Model, Cmd Msg )
 handleProtagonistMove moveFn model =
     case model of
         Playing playingModel ->
-            case playingModel.tackled of
-                Nothing ->
-                    -- Try to move the protagonist
-                    -- but he can't move out of bounds
-                    -- OR into a bad guy
-                    let
-                        spotToMoveTo =
-                            playingModel.protagonist
-                                |> moveFn
-                                |> Coord.constrain bounds
+            let
+                spotToMoveTo =
+                    playingModel.protagonist
+                        |> moveFn
+                        |> Coord.constrain bounds
 
-                        currentlyInSpot =
-                            BadGuys.currentBadGuy spotToMoveTo playingModel.badGuys
+                currentlyInSpot =
+                    BadGuys.currentBadGuy spotToMoveTo playingModel.badGuys
 
-                        scoredTouchdown =
-                            spotToMoveTo.y == 101
-                    in
-                    case currentlyInSpot of
-                        Just _ ->
-                            ( Playing playingModel
-                            , Cmd.none
-                            )
-
-                        Nothing ->
-                            if scoredTouchdown && playingModel.touchdowns == 2 then
-                                ( Ready
-                                    { nextSeed = playingModel.nextSeed
-                                    , howGameEnded = Just (Won { timeRemaining = playingModel.timeRemaining })
-                                    }
-                                , Cmd.none
-                                )
-
-                            else if scoredTouchdown then
-                                ( BetweenDowns
-                                    { badGuys = playingModel.badGuys
-                                    , tackled = Nothing
-                                    , footballDown = FootballDown.first
-                                    , startingYard = constants.startingYard
-                                    , setStartingYard = constants.startingYard
-                                    , nextSeed = playingModel.nextSeed
-                                    , protagonist = spotToMoveTo
-                                    , timeRemaining = playingModel.timeRemaining
-                                    , touchdowns = playingModel.touchdowns + 1
-                                    , tickValue = 0
-                                    , howPlayEnded = Touchdown
-                                    }
-                                , Cmd.none
-                                )
-
-                            else
-                                ( Playing { playingModel | protagonist = spotToMoveTo }
-                                , Cmd.none
-                                )
-
+                scoredTouchdown =
+                    spotToMoveTo.y == 101
+            in
+            case currentlyInSpot of
                 Just _ ->
-                    -- Can't move if you're tackled!!
-                    ( model, Cmd.none )
+                    ( Playing playingModel
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    if scoredTouchdown && playingModel.touchdowns == 2 then
+                        ( Ready
+                            { nextSeed = playingModel.nextSeed
+                            , howGameEnded = Just (Won { timeRemaining = playingModel.timeRemaining })
+                            }
+                        , Cmd.none
+                        )
+
+                    else if scoredTouchdown then
+                        ( BetweenDowns
+                            { badGuys = playingModel.badGuys
+                            , footballDown = FootballDown.first
+                            , startingYard = constants.startingYard
+                            , setStartingYard = constants.startingYard
+                            , nextSeed = playingModel.nextSeed
+                            , protagonist = spotToMoveTo
+                            , timeRemaining = playingModel.timeRemaining
+                            , touchdowns = playingModel.touchdowns + 1
+                            , tickValue = 0
+                            , howPlayEnded = Touchdown
+                            }
+                        , Cmd.none
+                        )
+
+                    else
+                        ( Playing { playingModel | protagonist = spotToMoveTo }
+                        , Cmd.none
+                        )
 
         _ ->
             ( model, Cmd.none )
@@ -566,7 +558,7 @@ viewReadyModel { howGameEnded } =
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
-viewBetweenDowns ({ howPlayEnded, tackled, footballDown, protagonist, startingYard, touchdowns } as betweenDownsModel) =
+viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touchdowns } as betweenDownsModel) =
     let
         info =
             let
@@ -581,31 +573,47 @@ viewBetweenDowns ({ howPlayEnded, tackled, footballDown, protagonist, startingYa
                     ]
                 ]
                 [ Html.modal { height = infoHeight, width = infoWidth, transparent = True }
-                    [ if howPlayEnded == Touchdown then
-                        Html.flexColumn []
-                            [ Html.div [] [ Html.text <| "Touchdown!!" ]
-                            , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
-                            , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
-                            ]
+                    [ case howPlayEnded of
+                        Touchdown ->
+                            Html.flexColumn []
+                                [ Html.div [] [ Html.text <| "Touchdown!!" ]
+                                , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
+                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                ]
 
-                      else
-                        Html.text ""
-                    , case tackled of
-                        Just _ ->
+                        Tackled tackled ->
                             Html.flexColumn []
                                 [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
                                 , Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString footballDown ++ " Down" ]
                                 , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
                                 ]
 
-                        Nothing ->
-                            Html.text ""
+                        FirstPlay ->
+                            Html.flexColumn []
+                                [ Html.div [] [ Html.text <| "Get ready to run the ball!" ]
+                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                ]
                     ]
                 ]
     in
     Html.div [ css [ position relative ] ]
         [ Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
-            [ viewField betweenDownsModel
+            [ viewField
+                { badGuys = betweenDownsModel.badGuys
+                , protagonist = protagonist
+                , tackled =
+                    case howPlayEnded of
+                        Tackled tackled_ ->
+                            Just tackled_
+
+                        Touchdown ->
+                            Nothing
+
+                        FirstPlay ->
+                            Nothing
+                , setStartingYard = betweenDownsModel.setStartingYard
+                , tickValue = betweenDownsModel.tickValue
+                }
             , viewScoreboard betweenDownsModel
             ]
         , info
@@ -615,7 +623,13 @@ viewBetweenDowns ({ howPlayEnded, tackled, footballDown, protagonist, startingYa
 viewPlayingModel : PlayingModel -> Html Msg
 viewPlayingModel playingModel =
     Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
-        [ viewField playingModel
+        [ viewField
+            { badGuys = playingModel.badGuys
+            , protagonist = playingModel.protagonist
+            , tackled = Nothing
+            , setStartingYard = playingModel.setStartingYard
+            , tickValue = playingModel.tickValue
+            }
         , viewScoreboard playingModel
         ]
 
