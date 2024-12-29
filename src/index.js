@@ -39,6 +39,42 @@ const rect = rc.rectangle(
 domSvg.appendChild(rect)
 
 
+class RoughModal extends HTMLElement {
+  static observedAttributes = ["height"];
+  static observedAttributes = ["width"];
+
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    const height = this.getAttribute("height")
+    const width = this.getAttribute("width")
+    const transparent = this.getAttribute("transparent") === "true"
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute("height", height)
+    svg.setAttribute("width", width)
+    svg.style.backgroundColor = transparent ? "transparent" : "white"
+
+    const rc = rough.svg(svg);
+    // x, y, width, height
+    const rect = rc.rectangle(2, 2, width - 4, height - 4, {
+      stroke: "black",
+      fill: "rgba(255, 255, 255, 0.8)",
+      fillStyle: "solid"
+    });
+    svg.appendChild(rect);
+
+    this.appendChild(svg)
+  }
+
+}
+if (customElements.get( 'rough-modal' ) == null) {
+  customElements.define("rough-modal", RoughModal);
+}
+
+
 
 class FieldTile extends HTMLElement {
   static observedAttributes = ["size"];

@@ -283,6 +283,10 @@ progressTime delta model =
                         , timeRemaining = newTimeRemaining
                     }
 
+        BetweenDowns betweenDownsModel ->
+            BetweenDowns
+                { betweenDownsModel | tickValue = betweenDownsModel.tickValue + delta }
+
         _ ->
             model
 
@@ -480,59 +484,111 @@ bounds =
 viewReadyModel : ReadyModel -> Html Msg
 viewReadyModel { howGameEnded } =
     let
-        container children =
-            Html.flexRow
-                [ css [ justifyContent center ] ]
-                [ Html.flexColumn [] children ]
+        container =
+            Html.modal
+                { height = constants.gridSize * 6
+                , width = constants.gridSize * 7
+                , transparent = False
+                }
     in
     case howGameEnded of
         Nothing ->
             container
                 [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
-                , Html.p [] [ Html.text "This is an unfinished homage to The Big Game: Bugs vs Daffy" ]
-                , Html.p [] [ Html.text "The goal is to score 3 touchdowns in 2 minutes" ]
-                , Html.p [] [ Html.text "Space Bar to start" ]
-                , Html.p [] [ Html.text "Arrow Keys to run" ]
+                , Html.p [] [ Html.text "Score 3 touchdowns in 2 minutes. The goons are playing defense. Oh, and it'll get harder after each toughdown!" ]
+                , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
                 , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
                 ]
 
         Just (Won { timeRemaining }) ->
             container
-                [ Html.text "Yay" ]
+                [ Html.h2 [] [ Html.text "🎉🎉🎉🎉🎉🎉" ]
+                , Html.p [] [ Html.text "You won!!" ]
+                , Html.p [] [ Html.text <| "And you did it with " ++ formatTime timeRemaining ++ " remaining!" ]
+                , Html.button [ Events.onClick StartDown ] [ Html.text "play again?" ]
+                ]
 
         Just (LossBySetOfDowns { score }) ->
+            let
+                text =
+                    if score == 2 then
+                        "You we're so close to 3 touchdowns..."
+
+                    else if score == 1 then
+                        "At least you scored once..."
+
+                    else
+                        "Next time, maybe you'll score..."
+            in
             container
-                [ Html.text "Yay" ]
+                [ Html.h2 [] [ Html.text "OUCH!! The goons had your number!" ]
+                , Html.h2 [] [ Html.text text ]
+                , Html.button [ Events.onClick StartDown ] [ Html.text "try again?" ]
+                ]
 
         Just (LossByTimeLimit { score }) ->
+            let
+                text =
+                    if score == 2 then
+                        "You we're so close, if only you had a little more time..."
+
+                    else if score == 1 then
+                        "Looks like you gotta run faster..."
+
+                    else
+                        "We're you even playing there... what happened?"
+            in
             container
-                [ Html.text "Yay" ]
+                [ Html.h2 [] [ Html.text "TOO SLOW!!" ]
+                , Html.p [] [ Html.text text ]
+                , Html.button [ Events.onClick StartDown ] [ Html.text "try again?" ]
+                ]
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
 viewBetweenDowns ({ howPlayEnded, tackled, footballDown, protagonist, startingYard, touchdowns } as betweenDownsModel) =
-    Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
-        [ viewField betweenDownsModel
-        , viewScoreboard betweenDownsModel
-        , if howPlayEnded == Touchdown then
-            Html.flexColumn []
-                [ Html.div [] [ Html.text <| "Touchdown!!" ]
-                , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
-                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
-                ]
-
-          else
-            Html.text ""
-        , case tackled of
-            Just _ ->
-                Html.flexColumn []
-                    [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
-                    , Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString footballDown ]
-                    , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+    let
+        info =
+            let
+                ( infoWidth, infoHeight ) =
+                    ( constants.gridSize * 4, constants.gridSize * 2 )
+            in
+            Html.div
+                [ css
+                    [ position absolute
+                    , top (px <| constants.gridSize * 2)
+                    , left (px <| (constants.gridSize * 3.5) - (infoWidth / 2))
                     ]
+                ]
+                [ Html.modal { height = infoHeight, width = infoWidth, transparent = True }
+                    [ if howPlayEnded == Touchdown then
+                        Html.flexColumn []
+                            [ Html.div [] [ Html.text <| "Touchdown!!" ]
+                            , Html.div [] [ Html.text <| "You now have " ++ String.fromInt touchdowns ++ " points." ]
+                            , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                            ]
 
-            Nothing ->
-                Html.text ""
+                      else
+                        Html.text ""
+                    , case tackled of
+                        Just _ ->
+                            Html.flexColumn []
+                                [ Html.div [] [ Html.text <| "You gained " ++ String.fromInt (protagonist.y - startingYard) ++ " yards." ]
+                                , Html.div [] [ Html.text <| "It's now " ++ FootballDown.toString footballDown ++ " Down" ]
+                                , Html.button [ Events.onClick StartDown ] [ Html.text "hut hike" ]
+                                ]
+
+                        Nothing ->
+                            Html.text ""
+                    ]
+                ]
+    in
+    Html.div [ css [ position relative ] ]
+        [ Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
+            [ viewField betweenDownsModel
+            , viewScoreboard betweenDownsModel
+            ]
+        , info
         ]
 
 
@@ -553,13 +609,13 @@ viewScoreboard { timeRemaining, touchdowns, footballDown, startingYard } =
             , backgroundColor (rgb 0 0 0)
             , border3 (px 4) solid (rgb 180 60 60)
             , color (rgb 0 255 0)
-            , fontFamily sansSerif
+            , fontFamily monospace
             ]
         ]
-        [ Html.div [] [ Html.text <| formatTime timeRemaining ]
-        , Html.div [] [ Html.text <| FootballDown.toString footballDown ]
-        , Html.div [] [ Html.text <| "Score: " ++ String.fromInt touchdowns ]
-        , Html.div [] [ Html.text <| "Yard: " ++ String.fromInt startingYard ]
+        [ Html.pre [] [ Html.text <| "Time:  " ++ formatTime timeRemaining ]
+        , Html.pre [] [ Html.text <| "Score: " ++ String.fromInt touchdowns ]
+        , Html.pre [] [ Html.text <| "Down:  " ++ FootballDown.toString footballDown ]
+        , Html.pre [] [ Html.text <| "Yards: " ++ String.fromInt startingYard ]
         ]
 
 
@@ -799,7 +855,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                 , zIndex (int -1)
                 ]
             ]
-            [ Html.node "field-tile" [ Attrs.attribute "size" (String.fromInt constants.gridSize) ] [] ]
+            [ Html.node "field-tile"
+                [ Attrs.attribute "size" (String.fromInt constants.gridSize) ]
+                []
+            ]
         , Html.flexRow [ css [ justifyContent center, alignItems center, zIndex (int 1) ] ]
             [ Html.flexColumn
                 []
@@ -817,6 +876,9 @@ subscriptions model =
         animationSub =
             case model of
                 Playing _ ->
+                    Browser.Events.onAnimationFrameDelta Tick
+
+                BetweenDowns _ ->
                     Browser.Events.onAnimationFrameDelta Tick
 
                 _ ->

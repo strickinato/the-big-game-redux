@@ -2,7 +2,7 @@ module HtmlHelpers exposing (..)
 
 import Css exposing (..)
 import Html.Styled as Html exposing (Html)
-import Html.Styled.Attributes exposing (css)
+import Html.Styled.Attributes as Attrs exposing (css)
 
 
 flexRow : List (Html.Attribute msg) -> List (Html msg) -> Html msg
@@ -24,12 +24,49 @@ gap pixels =
     property "gap" (String.fromInt pixels ++ "px")
 
 
+modal : { height : Int, width : Int, transparent : Bool } -> List (Html msg) -> Html msg
+modal opts children =
+    flexRow
+        [ css
+            [ justifyContent center
+            , height (px <| toFloat opts.height)
+            , width (px <| toFloat opts.width)
+            ]
+        ]
+        [ flexColumn
+            [ css
+                [ zIndex (int 1)
+                , padding2 zero (px 32)
+                , justifyContent center
+                , property "gap" "24px"
+                ]
+            ]
+            children
+        , Html.node "rough-modal"
+            [ Attrs.attribute "height" (String.fromInt opts.height)
+            , Attrs.attribute "width" (String.fromInt opts.width)
+            , Attrs.attribute "transparent"
+                (if opts.transparent then
+                    "true"
+
+                 else
+                    "false"
+                )
+            , css [ position absolute ]
+            ]
+            []
+        ]
+
+
 layout : List (Html.Attribute msg) -> List (Html msg) -> Html msg
 layout attrs children =
     Html.div
         (css
             [ maxWidth (px 960)
-            , margin2 (px 120) auto
+            , margin2 zero auto
+            , paddingTop (px 120)
+            , displayFlex
+            , justifyContent center
             ]
             :: attrs
         )

@@ -33,13 +33,13 @@ toString : FootballDown -> String
 toString footballDown =
     case footballDown of
         FirstDown ->
-            "First Down"
+            "First"
 
         SecondDown ->
-            "Second Down"
+            "Second"
 
         ThirdDown ->
-            "Third Down"
+            "Third"
 
         FourthDown ->
-            "Fourth Down"
+            "Fourth"

@@ -1,9 +1,9 @@
 {
   "name": "football",
   "version": "1.0.0",
-  "main": "elm.js",
   "scripts": {
-    "dev": "parcel src/index.html src/assets/*"
+    "dev": "parcel src/index.html src/assets/*",
+    "build": "parcel build src/index.html src/assets/*"
   },
   "author": "",
   "license": "ISC",
