@@ -713,27 +713,6 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                          else
                             Html.text ""
                        ]
-                 -- ++ [ Html.div
-                 --         [ css
-                 --             [ displayFlex
-                 --             , alignItems center
-                 --             , height (px constants.gridSize)
-                 --             , width (px constants.gridSize)
-                 --             , fontSize (px constants.gridSize)
-                 --             , backgroundColor (rgb 80 210 90)
-                 --             , color (rgb 255 255 255)
-                 --             , borderLeft3 (px 8) solid (rgb 255 255 255)
-                 --             ]
-                 --         ]
-                 --         [ if modBy 5 y == 0 then
-                 --             Html.span
-                 --                 [ css [ transform (translateY (px (constants.gridSize / 2))) ]
-                 --                 ]
-                 --                 [ Html.text (String.fromInt y) ]
-                 --           else
-                 --             Html.text ""
-                 --         ]
-                 --    ]
                 )
 
         viewCell coord =
@@ -831,17 +810,6 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue } =
                     , justifyContent center
                     , width (px constants.gridSize)
                     , height (px constants.gridSize)
-
-                    -- , backgroundColor (rgb 100 220 100)
-                    -- , border3 (px 1) solid (rgba 100 100 100 0.2)
-                    -- , if modBy 5 coord.y == 0 then
-                    --     borderBottom3 (px 10) solid (rgb 255 255 255)
-                    --   else
-                    --     batch []
-                    -- , if coord.y == setStartingYard + 10 then
-                    --     borderBottom3 (px 10) solid (rgb 220 220 100)
-                    --   else
-                    --     batch []
                     ]
                 ]
                 [ art ]
