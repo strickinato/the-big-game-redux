@@ -1,7 +1,8 @@
 .DS_Store
-elm-stuff
+.parcel-cache/
+elm-stuff/
 elm.js
-node_modules
-
+node_modules/
+workspace/
+.vercel
 dist
-.parcel-cache
