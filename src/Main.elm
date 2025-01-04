@@ -902,7 +902,9 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
 
                         FirstPlay ->
                             Html.flexColumn [ css [ Html.gap 16 ] ]
-                                [ Html.div [] [ Html.text <| "Get ready to run the ball!" ]
+                                [ Html.h2 [] [ Html.text <| "Let's go Rabbit!!" ]
+                                , Html.p [] [ Html.text <| "Run the ball (R) as fast as you can." ]
+                                , Html.p [] [ Html.text <| "Or pass (P) and chase it down." ]
                                 , playButtons
                                 ]
                     ]
