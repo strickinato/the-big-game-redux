@@ -89,7 +89,7 @@ type alias BetweenDownsModel =
 
 type PlayType
     = RunPlay
-    | PassPlay { ballTarget : Coord, caught : Bool }
+    | PassPlay { ballTarget : Coord, ballHangTime : Float, caught : Bool }
 
 
 type HowPlayEnded
@@ -189,7 +189,50 @@ handleTick delta model =
         |> progressTime delta
         |> moveBadGuysIfItsTime
         |> maybeTackleProtagonist
+        |> maybeCatchBall
         |> (\m -> ( m, Cmd.none ))
+
+
+maybeCatchBall : Model -> Model
+maybeCatchBall model =
+    case model of
+        Playing ({ playType, tickValue, protagonist } as playingModel) ->
+            case playType of
+                PassPlay ({ ballHangTime, ballTarget, caught } as pass) ->
+                    if not caught && tickValue >= ballHangTime then
+                        if ballTarget == protagonist then
+                            Playing { playingModel | playType = PassPlay { pass | caught = True } }
+
+                        else
+                            case FootballDown.next playingModel.footballDown of
+                                Just nextDown ->
+                                    BetweenDowns
+                                        { badGuys = playingModel.badGuys
+                                        , footballDown = nextDown
+                                        , startingYard = playingModel.startingYard
+                                        , setStartingYard = playingModel.setStartingYard
+                                        , nextSeed = playingModel.nextSeed
+                                        , protagonist = playingModel.protagonist
+                                        , timeRemaining = playingModel.timeRemaining
+                                        , touchdowns = playingModel.touchdowns
+                                        , tickValue = 0
+                                        , howPlayEnded = Incomplete
+                                        }
+
+                                Nothing ->
+                                    Ready
+                                        { nextSeed = playingModel.nextSeed
+                                        , howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns })
+                                        }
+
+                    else
+                        model
+
+                RunPlay ->
+                    model
+
+        _ ->
+            model
 
 
 maybeTackleProtagonist : Model -> Model
@@ -285,7 +328,22 @@ moveBadGuysIfItsTime model =
                 let
                     ( newBadGuyPositions, nextSeed ) =
                         playingModel.badGuys
-                            |> BadGuys.step playingModel.nextSeed bounds playingModel.protagonist
+                            |> BadGuys.step
+                                { seed = playingModel.nextSeed
+                                , bounds = bounds
+                                , protagonist = playingModel.protagonist
+                                , strategy =
+                                    case playingModel.playType of
+                                        RunPlay ->
+                                            BadGuys.TowardsProtagonist
+
+                                        PassPlay { caught } ->
+                                            if caught then
+                                                BadGuys.TowardsProtagonist
+
+                                            else
+                                                BadGuys.Random
+                                }
                 in
                 Playing
                     { playingModel
@@ -421,9 +479,15 @@ handleStartDown isRun model =
                         let
                             ( ballTarget, steppedSeed ) =
                                 generateThrow protagonist steppedNextSeed
-                                    |> Debug.log "throw with seed"
+
+                            ( ballHangTime, _ ) =
+                                Random.step (Random.float 4000 6000) steppedNextSeed
                         in
-                        ( PassPlay { ballTarget = ballTarget, caught = False }
+                        ( PassPlay
+                            { ballTarget = ballTarget
+                            , ballHangTime = ballHangTime
+                            , caught = False
+                            }
                         , steppedSeed
                         )
             in
@@ -455,7 +519,7 @@ generateThrow protagonist seed =
             Random.int bounds.xMin bounds.xMax
 
         randomY =
-            Random.int (protagonist.y + 8) (protagonist.y + 18)
+            Random.int (protagonist.y + 8) (protagonist.y + 14)
                 |> Random.map (min bounds.yMax)
     in
     Random.step
@@ -740,7 +804,7 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
 
                         FirstPlay ->
                             Nothing
-                , maybePlayType = Nothing
+                , maybePassData = Nothing
                 , setStartingYard = betweenDownsModel.setStartingYard
                 , tickValue = betweenDownsModel.tickValue
                 }
@@ -752,6 +816,20 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
 
 viewPlayingModel : PlayingModel -> Html Msg
 viewPlayingModel playingModel =
+    let
+        maybePassData =
+            case playingModel.playType of
+                PassPlay pass ->
+                    Just
+                        { startingYard = playingModel.startingYard
+                        , ballTarget = pass.ballTarget
+                        , caught = pass.caught
+                        , ballHangTime = pass.ballHangTime
+                        }
+
+                RunPlay ->
+                    Nothing
+    in
     Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
         [ viewField
             { badGuys = playingModel.badGuys
@@ -759,7 +837,7 @@ viewPlayingModel playingModel =
             , tackled = Nothing
             , setStartingYard = playingModel.setStartingYard
             , tickValue = playingModel.tickValue
-            , maybePlayType = Just playingModel.playType
+            , maybePassData = maybePassData
             }
         , viewScoreboard playingModel
         ]
@@ -809,10 +887,10 @@ viewField :
         , tackled : Maybe { coord : Coord, previousCoord : Coord }
         , setStartingYard : Int
         , tickValue : Float
-        , maybePlayType : Maybe PlayType
+        , maybePassData : Maybe { ballTarget : Coord, ballHangTime : Float, caught : Bool, startingYard : Int }
     }
     -> Html msg
-viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePlayType } =
+viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePassData } =
     let
         triangle direction =
             Html.node "field-triangle"
@@ -921,16 +999,13 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePlay
                     BadGuys.member coord badGuys
 
                 viewTarget =
-                    case maybePlayType of
-                        Just (PassPlay { ballTarget, caught }) ->
+                    case maybePassData of
+                        Just { ballTarget, caught } ->
                             if not caught && ballTarget == coord then
                                 Html.div [ css [ position absolute ] ] [ Html.text "X" ]
 
                             else
                                 Html.text ""
-
-                        Just RunPlay ->
-                            Html.text ""
 
                         Nothing ->
                             Html.text ""
@@ -1036,10 +1111,49 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePlay
                 [ art, viewTarget ]
 
         viewBall =
-            -- TODO:
-            --  - We need the trajectory towards it's spot
-            --    And we need to know how long since throw
-            Html.div [] [ Html.text "O" ]
+            case maybePassData of
+                Just { startingYard, caught, ballTarget, ballHangTime } ->
+                    let
+                        normalizedTime =
+                            tickValue / ballHangTime
+
+                        xPosition =
+                            normalizedTime
+                                * (toFloat <| ballTarget.x - 3)
+                                |> (+) 3
+                                |> (+) 0.5
+                                |> (*) constants.gridSize
+
+                        yPosition =
+                            normalizedTime
+                                * (toFloat <| ballTarget.y - startingYard)
+                                |> (+) (toFloat startingYard + 1)
+                                |> (\ballYard -> ballYard - toFloat protagonist.y)
+                                |> (+) 0.5
+                                |> (*) constants.gridSize
+                                |> (*) -1
+
+                        scaleValue =
+                            (1.4 * sin (pi * normalizedTime))
+                                |> (+) 1
+                    in
+                    if not caught then
+                        Html.div
+                            [ css
+                                [ position absolute
+                                , transforms
+                                    [ translate2 (px xPosition) (px yPosition)
+                                    , scale scaleValue
+                                    ]
+                                ]
+                            ]
+                            [ Html.text "O" ]
+
+                    else
+                        Html.text ""
+
+                Nothing ->
+                    Html.text ""
     in
     Html.div []
         [ Html.div

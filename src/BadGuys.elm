@@ -1,4 +1,4 @@
-module BadGuys exposing (BadGuys, currentBadGuy, generate, member, step)
+module BadGuys exposing (BadGuys, Strategy(..), currentBadGuy, generate, member, step)
 
 import Bounds exposing (Bounds)
 import Coord exposing (Coord)
@@ -47,8 +47,20 @@ generator protagonistCoord =
         belowProtagonist
 
 
-step : Random.Seed -> Bounds -> Coord -> BadGuys -> ( BadGuys, Random.Seed )
-step seed bounds protagonist (BadGuys badGuys) =
+type Strategy
+    = Random
+    | TowardsProtagonist
+
+
+step :
+    { seed : Random.Seed
+    , bounds : Bounds
+    , protagonist : Coord
+    , strategy : Strategy
+    }
+    -> BadGuys
+    -> ( BadGuys, Random.Seed )
+step { seed, bounds, protagonist, strategy } (BadGuys badGuys) =
     let
         { newBadGuys, newSeed } =
             Dict.foldl
@@ -56,10 +68,12 @@ step seed bounds protagonist (BadGuys badGuys) =
                     let
                         validMoves =
                             validMovesForBadGuy
-                                bounds
-                                protagonist
-                                { x = x, y = y }
-                                (BadGuys acc.newBadGuys)
+                                { bounds = bounds
+                                , protagonist = protagonist
+                                , badGuy = Coord.make x y
+                                , allBadGuys = BadGuys acc.newBadGuys
+                                , strategy = strategy
+                                }
 
                         ( randomSpot, steppedSeed ) =
                             Random.step (Random.int 0 (List.length validMoves - 1)) acc.newSeed
@@ -82,15 +96,20 @@ step seed bounds protagonist (BadGuys badGuys) =
     )
 
 
-validMovesForBadGuy : Bounds -> Coord -> Coord -> BadGuys -> List Coord
-validMovesForBadGuy bounds protagonist testCoord badGuys =
+validMovesForBadGuy : { bounds : Bounds, protagonist : Coord, badGuy : Coord, allBadGuys : BadGuys, strategy : Strategy } -> List Coord
+validMovesForBadGuy { bounds, protagonist, badGuy, allBadGuys, strategy } =
     let
         movedCloser coord =
-            Coord.distanceBetween protagonist coord < Coord.distanceBetween protagonist testCoord
+            case strategy of
+                Random ->
+                    True
+
+                TowardsProtagonist ->
+                    Coord.distanceBetween protagonist coord < Coord.distanceBetween protagonist badGuy
     in
     [ Coord.moveUp, Coord.moveDown, Coord.moveLeft, Coord.moveRight ]
-        |> List.map (\fn -> fn testCoord |> Coord.constrain bounds)
-        |> List.filter (\c -> not (member c badGuys) && c /= protagonist && movedCloser c)
+        |> List.map (\fn -> fn badGuy |> Coord.constrain bounds)
+        |> List.filter (\c -> not (member c allBadGuys) && c /= protagonist && movedCloser c)
 
 
 member : Coord -> BadGuys -> Bool
