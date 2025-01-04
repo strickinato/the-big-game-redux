@@ -884,7 +884,7 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                                     ]
                                 , Html.p []
                                     [ if footballDown /= FootballDown.FirstDown then
-                                        Html.text (String.pluralize "yard" "yards" yardsRemaining ++ " to go.")
+                                        Html.text (String.pluralize "yard" "yards" (setStartingYard + 10 - protagonist.y) ++ " to go.")
 
                                       else
                                         Html.text ""
@@ -896,7 +896,7 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                             Html.flexColumn [ css [ Html.gap 16 ] ]
                                 [ Html.h2 [] [ Html.text <| "Incomplete" ]
                                 , Html.p [] [ Html.text "No gain." ]
-                                , Html.p [] [ Html.text (String.pluralize "yard" "yards" yardsRemaining ++ " to go.") ]
+                                , Html.p [] [ Html.text (String.pluralize "yard" "yards" (setStartingYard + 10 - startingYard) ++ " to go.") ]
                                 , playButtons
                                 ]
 
@@ -1155,7 +1155,11 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                     case maybePassData of
                         Just { ballTarget, caught } ->
                             if not caught && ballTarget == coord then
-                                Html.div [ css [ position absolute ] ] [ Html.text "X" ]
+                                Html.node "field-target"
+                                    [ css [ position absolute, zIndex (int 5) ]
+                                    , Attrs.attribute "size" (String.fromInt constants.gridSize)
+                                    ]
+                                    []
 
                             else
                                 Html.text ""

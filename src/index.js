@@ -298,3 +298,40 @@ class FieldNumber extends HTMLElement {
 if (customElements.get( 'field-number' ) == null) {
   customElements.define("field-number", FieldNumber);
 }
+
+class Target extends HTMLElement {
+  static observedAttributes = ["gridSize"];
+
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    const size = this.getAttribute("size")
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute("height", size)
+    svg.setAttribute("width", size)
+
+    const rc = rough.svg(svg);
+    // Note: For this path, it's specifically based on a 72 size grid
+    //                so the path will have to be recreated if the grid size changes
+    //                I made it by creating two circles and unioning them, which roughjs can't do
+    const outer = rc.path("M 57.429 36 C 57.429 47.835 47.835 57.429 36 57.429 C 24.166 57.429 14.571 47.835 14.571 36 C 14.571 24.166 24.166 14.571 36 14.571 C 47.835 14.571 57.429 24.166 57.429 36 Z M 36 0 C 16.118 0 0 16.118 0 36 C 0 55.882 16.118 72 36 72 C 55.882 72 72 55.882 72 36 C 72 16.118 55.882 0 36 0 Z", {
+      stroke: "red",
+      fill: "red",
+      fillStyle: "cross-hatched",
+    });
+    svg.appendChild(outer);
+    const inner = rc.circle(size/2,size/2,size/6, {
+      stroke: "red",
+      fill: "red",
+      fillStyle: "cross-hatched",
+    });
+    svg.appendChild(inner);
+     this.appendChild(svg)
+  }
+}
+if (customElements.get('field-target') == null) {
+  customElements.define("field-target", Target);
+}
