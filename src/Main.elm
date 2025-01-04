@@ -1074,10 +1074,10 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                                         [ Attrs.height (floor <| constants.gridSize * 1.2)
                                         , Attrs.width (floor <| constants.gridSize * 1.2)
                                         , if modBy 2 (floor (tickValue / 200)) == 0 then
-                                            Attrs.src "./assets/rabbit-1.svg"
+                                            Attrs.src "./assets/rabbit-with-ball-1.svg"
 
                                           else
-                                            Attrs.src "./assets/rabbit-2.svg"
+                                            Attrs.src "./assets/rabbit-with-ball-2.svg"
                                         ]
                                         []
                                     ]
