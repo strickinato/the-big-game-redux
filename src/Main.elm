@@ -53,6 +53,7 @@ difficultyMap numberOfTouchdowns =
 
 type Model
     = Playing PlayingModel
+    | CountingDown CountingDownModel
     | BetweenDowns BetweenDownsModel
     | Ready ReadyModel
 
@@ -70,6 +71,20 @@ type alias PlayingModel =
     , tickValue : Float
     , timeRemaining : Float
     , touchdowns : Int
+    }
+
+
+type alias CountingDownModel =
+    { badGuys : BadGuys
+    , footballDown : FootballDown
+    , startingYard : Int
+    , setStartingYard : Int
+    , nextSeed : Random.Seed
+    , protagonist : Coord
+    , timeRemaining : Float
+    , tickValue : Float
+    , touchdowns : Int
+    , playType : PlayType
     }
 
 
@@ -115,6 +130,7 @@ type Msg
     = NoOp
     | HandleKeyboardEvent KeyboardEvent
     | StartDown { run : Bool }
+    | NewGame
     | Tick Float
 
 
@@ -175,6 +191,9 @@ update msg model =
 
         StartDown { run } ->
             handleStartDown run model
+
+        NewGame ->
+            handleNewGame model
 
         Tick delta ->
             handleTick delta model
@@ -390,8 +409,8 @@ progressTime delta model =
             model
 
 
-handleStartDown : Bool -> Model -> ( Model, Cmd Msg )
-handleStartDown isRun model =
+handleNewGame : Model -> ( Model, Cmd Msg )
+handleNewGame model =
     case model of
         Ready readyModel ->
             let
@@ -420,6 +439,19 @@ handleStartDown isRun model =
             , Cmd.none
             )
 
+        BetweenDowns betweenDownsModel ->
+            ( BetweenDowns betweenDownsModel, Cmd.none )
+
+        CountingDown countingDownModel ->
+            ( CountingDown countingDownModel, Cmd.none )
+
+        Playing playingModel ->
+            ( Playing playingModel, Cmd.none )
+
+
+handleStartDown : Bool -> Model -> ( Model, Cmd Msg )
+handleStartDown isRun model =
+    case model of
         BetweenDowns { howPlayEnded, protagonist, nextSeed, footballDown, setStartingYard, timeRemaining, touchdowns, startingYard } ->
             let
                 newStartingYard =
@@ -507,6 +539,12 @@ handleStartDown isRun model =
                 }
             , Cmd.none
             )
+
+        Ready readyModel ->
+            ( Ready readyModel, Cmd.none )
+
+        CountingDown countingDownModel ->
+            ( CountingDown countingDownModel, Cmd.none )
 
         Playing playingModel ->
             ( Playing playingModel, Cmd.none )
@@ -599,6 +637,9 @@ view model =
         Playing playingModel ->
             [ viewPlayingModel playingModel ]
 
+        CountingDown countingDownModel ->
+            [ viewCountingDown countingDownModel ]
+
         BetweenDowns betweenDownsModel ->
             [ viewBetweenDowns betweenDownsModel ]
 
@@ -622,6 +663,28 @@ bounds =
     }
 
 
+viewCountingDown : CountingDownModel -> Html Msg
+viewCountingDown ({ protagonist } as countingDownModel) =
+    let
+        info =
+            Html.text "He"
+    in
+    Html.div [ css [ position relative ] ]
+        [ Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
+            [ viewField
+                { badGuys = countingDownModel.badGuys
+                , protagonist = protagonist
+                , tackled = Nothing
+                , maybePassData = Nothing
+                , setStartingYard = countingDownModel.setStartingYard
+                , tickValue = countingDownModel.tickValue
+                }
+            , viewScoreboard countingDownModel
+            ]
+        , info
+        ]
+
+
 viewReadyModel : ReadyModel -> Html Msg
 viewReadyModel { howGameEnded } =
     let
@@ -640,9 +703,7 @@ viewReadyModel { howGameEnded } =
                 , Html.p [] [ Html.text "Run or Pass 10 yards to get a First Down" ]
                 , Html.p [] [ Html.text "Score 3 Touchdowns to Win!" ]
                 , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
-
-                -- TODO StartDown here should be "NewGame" maybe
-                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "hut hike" ]
+                , Html.button [ Events.onClick NewGame ] [ Html.text "hut hike" ]
                 ]
 
         Just (Won { timeRemaining }) ->
@@ -650,9 +711,7 @@ viewReadyModel { howGameEnded } =
                 [ Html.h2 [] [ Html.text "🎉🎉🎉🎉🎉🎉" ]
                 , Html.p [] [ Html.text "You won!!" ]
                 , Html.p [] [ Html.text <| "And you did it with " ++ formatTime timeRemaining ++ " remaining!" ]
-
-                -- TODO StartDown here should be "NewGame" maybe
-                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "play again?" ]
+                , Html.button [ Events.onClick NewGame ] [ Html.text "play again?" ]
                 ]
 
         Just (LossBySetOfDowns { score }) ->
@@ -670,9 +729,7 @@ viewReadyModel { howGameEnded } =
             container
                 [ Html.h2 [] [ Html.text "OUCH!! The goons had your number!" ]
                 , Html.h2 [] [ Html.text text ]
-
-                -- TODO StartDown here should be "NewGame" maybe
-                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "try again?" ]
+                , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
                 ]
 
         Just (LossByTimeLimit { score }) ->
@@ -690,9 +747,7 @@ viewReadyModel { howGameEnded } =
             container
                 [ Html.h2 [] [ Html.text "TOO SLOW!!" ]
                 , Html.p [] [ Html.text text ]
-
-                -- TODO StartDown here should be "NewGame" maybe
-                , Html.button [ Events.onClick (StartDown { run = True }) ] [ Html.text "try again?" ]
+                , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
                 ]
 
 
