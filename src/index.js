@@ -19,6 +19,7 @@ svgWrapper.style.position = "absolute"
 svgWrapper.style.width = "absolute"
 svgWrapper.style.top = 0
 svgWrapper.style.zIndex = -2
+svgWrapper.style.height = "100%"
 
 
 const domSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
