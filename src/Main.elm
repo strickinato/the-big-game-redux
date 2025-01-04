@@ -184,7 +184,15 @@ update msg model =
                     handleStartDown True model
 
                 Key.Spacebar ->
-                    handleStartDown True model
+                    case model of
+                        Ready _ ->
+                            handleNewGame model
+
+                        BetweenDowns _ ->
+                            handleStartDown True model
+
+                        _ ->
+                            ( model, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -401,6 +409,30 @@ progressTime delta model =
                         , timeRemaining = newTimeRemaining
                     }
 
+        CountingDown countingDownModel ->
+            let
+                newTickValue =
+                    countingDownModel.tickValue + delta
+            in
+            if newTickValue > 2000 then
+                Playing
+                    { badGuys = countingDownModel.badGuys
+                    , protagonist = countingDownModel.protagonist
+                    , playType = countingDownModel.playType
+                    , footballDown = countingDownModel.footballDown
+                    , startingYard = countingDownModel.startingYard
+                    , setStartingYard = countingDownModel.setStartingYard
+                    , nextSeed = countingDownModel.nextSeed
+                    , sinceLastBadGuyMove = 0
+                    , sinceLastTackleCheck = 0
+                    , tickValue = 0
+                    , timeRemaining = countingDownModel.timeRemaining
+                    , touchdowns = countingDownModel.touchdowns
+                    }
+
+            else
+                CountingDown { countingDownModel | tickValue = newTickValue }
+
         BetweenDowns betweenDownsModel ->
             BetweenDowns
                 { betweenDownsModel | tickValue = betweenDownsModel.tickValue + delta }
@@ -523,15 +555,13 @@ handleStartDown isRun model =
                         , steppedSeed
                         )
             in
-            ( Playing
+            ( CountingDown
                 { badGuys = badGuys
                 , protagonist = newProtagonist
                 , footballDown = footballDown
                 , startingYard = newStartingYard
                 , setStartingYard = newSetStartingYard
                 , nextSeed = newNextSeed
-                , sinceLastBadGuyMove = 0
-                , sinceLastTackleCheck = 0
                 , tickValue = 0
                 , timeRemaining = timeRemaining
                 , touchdowns = touchdowns
@@ -664,10 +694,20 @@ bounds =
 
 
 viewCountingDown : CountingDownModel -> Html Msg
-viewCountingDown ({ protagonist } as countingDownModel) =
+viewCountingDown ({ protagonist, tickValue } as countingDownModel) =
     let
-        info =
-            Html.text "He"
+        ( infoWidth, infoHeight ) =
+            ( constants.gridSize * 4, constants.gridSize * 2 )
+
+        infoText =
+            if tickValue < (2000 * 1 / 3) then
+                "Ready..."
+
+            else if tickValue < (2000 * 2 / 3) then
+                "Hut..."
+
+            else
+                "Hike!"
     in
     Html.div [ css [ position relative ] ]
         [ Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
@@ -681,7 +721,20 @@ viewCountingDown ({ protagonist } as countingDownModel) =
                 }
             , viewScoreboard countingDownModel
             ]
-        , info
+        , Html.div
+            [ css
+                [ position absolute
+                , top (px <| constants.gridSize * 2)
+                , left (px <| (constants.gridSize * 3.5) - (infoWidth / 2))
+                ]
+            ]
+            [ Html.modal
+                { height = infoHeight
+                , width = infoWidth
+                , transparent = True
+                }
+                [ Html.h1 [] [ Html.text infoText ] ]
+            ]
         ]
 
 
@@ -1244,6 +1297,9 @@ subscriptions model =
                     Browser.Events.onAnimationFrameDelta Tick
 
                 BetweenDowns _ ->
+                    Browser.Events.onAnimationFrameDelta Tick
+
+                CountingDown _ ->
                     Browser.Events.onAnimationFrameDelta Tick
 
                 _ ->
