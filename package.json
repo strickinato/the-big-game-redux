@@ -17,6 +17,7 @@
     "parcel": "^2.13.2"
   },
   "dependencies": {
+    "howler": "^2.2.4",
     "roughjs": "^4.6.6"
   }
 }

@@ -1,4 +1,6 @@
 import rough from 'roughjs';
+import {Howl, Howler} from 'howler';
+
 
 import { Elm } from './Main.elm'
 
@@ -9,6 +11,15 @@ const flags = {
 const app = Elm.Main.init({
   node,
   flags,
+})
+
+app.ports.playHowlerSound.subscribe(msg => {
+  const sound = new Howl({
+    src: [require("url:./assets/theme.mp3")],
+    loop: msg.looping,
+  });
+
+  sound.play();
 })
 
 const windowHeight = window.innerHeight

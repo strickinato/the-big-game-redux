@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import BadGuys exposing (BadGuys)
 import Bounds exposing (Bounds)
@@ -13,12 +13,16 @@ import Html.Styled.Attributes as Attrs exposing (css)
 import Html.Styled.Events as Events
 import HtmlHelpers as Html
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Keyboard.Event exposing (KeyboardEvent, decodeKeyboardEvent)
 import Keyboard.Key as Key
 import List.Extra as List
 import Maybe.Extra as Maybe
 import Random
 import String.Extra as String
+
+
+port playHowlerSound : Encode.Value -> Cmd msg
 
 
 constants =
@@ -71,6 +75,7 @@ type alias PlayingModel =
     , tickValue : Float
     , timeRemaining : Float
     , touchdowns : Int
+    , soundEnabled : Bool
     }
 
 
@@ -85,6 +90,7 @@ type alias CountingDownModel =
     , tickValue : Float
     , touchdowns : Int
     , playType : PlayType
+    , soundEnabled : Bool
     }
 
 
@@ -99,6 +105,7 @@ type alias BetweenDownsModel =
     , tickValue : Float
     , touchdowns : Int
     , howPlayEnded : HowPlayEnded
+    , soundEnabled : Bool
     }
 
 
@@ -117,6 +124,8 @@ type HowPlayEnded
 type alias ReadyModel =
     { nextSeed : Random.Seed
     , howGameEnded : Maybe HowGameEnded
+    , soundEnabled : Bool
+    , loading : Bool
     }
 
 
@@ -131,6 +140,7 @@ type Msg
     | HandleKeyboardEvent KeyboardEvent
     | StartDown { run : Bool }
     | NewGame
+    | StartPlaying
     | Tick Float
 
 
@@ -146,6 +156,38 @@ main =
         , view = view >> Html.toUnstyled
         , subscriptions = subscriptions
         }
+
+
+isSoundEnabled : Model -> Bool
+isSoundEnabled model =
+    case model of
+        Playing { soundEnabled } ->
+            soundEnabled
+
+        BetweenDowns { soundEnabled } ->
+            soundEnabled
+
+        Ready { soundEnabled } ->
+            soundEnabled
+
+        CountingDown { soundEnabled } ->
+            soundEnabled
+
+
+toggleSoundEnabled : Model -> Model
+toggleSoundEnabled model =
+    case model of
+        Playing ({ soundEnabled } as subModel) ->
+            Playing { subModel | soundEnabled = not subModel.soundEnabled }
+
+        BetweenDowns ({ soundEnabled } as subModel) ->
+            BetweenDowns { subModel | soundEnabled = not subModel.soundEnabled }
+
+        Ready ({ soundEnabled } as subModel) ->
+            Ready { subModel | soundEnabled = not subModel.soundEnabled }
+
+        CountingDown ({ soundEnabled } as subModel) ->
+            CountingDown { subModel | soundEnabled = not subModel.soundEnabled }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -185,8 +227,12 @@ update msg model =
 
                 Key.Spacebar ->
                     case model of
-                        Ready _ ->
-                            handleNewGame model
+                        Ready { loading } ->
+                            if loading then
+                                handleStartPlaying model
+
+                            else
+                                handleNewGame model
 
                         BetweenDowns _ ->
                             handleStartDown True model
@@ -202,6 +248,9 @@ update msg model =
 
         NewGame ->
             handleNewGame model
+
+        StartPlaying ->
+            handleStartPlaying model
 
         Tick delta ->
             handleTick delta model
@@ -244,12 +293,15 @@ maybeCatchBall model =
                                         , touchdowns = playingModel.touchdowns
                                         , tickValue = 0
                                         , howPlayEnded = Incomplete
+                                        , soundEnabled = isSoundEnabled model
                                         }
 
                                 Nothing ->
                                     Ready
                                         { nextSeed = playingModel.nextSeed
                                         , howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns })
+                                        , soundEnabled = isSoundEnabled model
+                                        , loading = False
                                         }
 
                     else
@@ -308,6 +360,7 @@ maybeTackleProtagonist model =
                                 , touchdowns = playingModel.touchdowns
                                 , tickValue = 0
                                 , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
+                                , soundEnabled = isSoundEnabled model
                                 }
 
                         else
@@ -324,10 +377,16 @@ maybeTackleProtagonist model =
                                         , touchdowns = playingModel.touchdowns
                                         , tickValue = 0
                                         , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
+                                        , soundEnabled = isSoundEnabled model
                                         }
 
                                 Nothing ->
-                                    Ready { nextSeed = newNextSeed, howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns }) }
+                                    Ready
+                                        { nextSeed = newNextSeed
+                                        , howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns })
+                                        , soundEnabled = isSoundEnabled model
+                                        , loading = False
+                                        }
 
                     Nothing ->
                         Playing
@@ -398,6 +457,8 @@ progressTime delta model =
                 Ready
                     { nextSeed = playingModel.nextSeed
                     , howGameEnded = Just (LossByTimeLimit { score = playingModel.touchdowns })
+                    , soundEnabled = isSoundEnabled model
+                    , loading = False
                     }
 
             else
@@ -428,6 +489,7 @@ progressTime delta model =
                     , tickValue = 0
                     , timeRemaining = countingDownModel.timeRemaining
                     , touchdowns = countingDownModel.touchdowns
+                    , soundEnabled = isSoundEnabled model
                     }
 
             else
@@ -439,6 +501,18 @@ progressTime delta model =
 
         _ ->
             model
+
+
+handleStartPlaying : Model -> ( Model, Cmd Msg )
+handleStartPlaying model =
+    case model of
+        Ready readyModel ->
+            ( Ready { readyModel | loading = False, soundEnabled = True }
+            , playSound Theme
+            )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 handleNewGame : Model -> ( Model, Cmd Msg )
@@ -467,6 +541,7 @@ handleNewGame model =
                 , timeRemaining = 120000
                 , touchdowns = 0
                 , howPlayEnded = FirstPlay
+                , soundEnabled = isSoundEnabled model
                 }
             , Cmd.none
             )
@@ -566,6 +641,7 @@ handleStartDown isRun model =
                 , timeRemaining = timeRemaining
                 , touchdowns = touchdowns
                 , playType = playType
+                , soundEnabled = isSoundEnabled model
                 }
             , Cmd.none
             )
@@ -622,6 +698,8 @@ handleProtagonistMove moveFn model =
                         ( Ready
                             { nextSeed = playingModel.nextSeed
                             , howGameEnded = Just (Won { timeRemaining = playingModel.timeRemaining })
+                            , soundEnabled = isSoundEnabled model
+                            , loading = False
                             }
                         , Cmd.none
                         )
@@ -638,6 +716,7 @@ handleProtagonistMove moveFn model =
                             , touchdowns = playingModel.touchdowns + 1
                             , tickValue = 0
                             , howPlayEnded = Touchdown
+                            , soundEnabled = isSoundEnabled model
                             }
                         , Cmd.none
                         )
@@ -656,6 +735,8 @@ init { seed } =
     ( Ready
         { nextSeed = Random.initialSeed seed
         , howGameEnded = Nothing
+        , soundEnabled = False
+        , loading = True
         }
     , Cmd.none
     )
@@ -753,7 +834,7 @@ viewCountingDown ({ protagonist, tickValue } as countingDownModel) =
 
 
 viewReadyModel : ReadyModel -> Html Msg
-viewReadyModel { howGameEnded } =
+viewReadyModel { howGameEnded, loading } =
     let
         container =
             Html.modal
@@ -762,60 +843,70 @@ viewReadyModel { howGameEnded } =
                 , transparent = False
                 }
     in
-    case howGameEnded of
-        Nothing ->
-            container
-                [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
-                , Html.p [] [ Html.text "It was supposed to be a fair football game, but it looks like it's going to be you against a whoooole lotta goons." ]
-                , Html.p [] [ Html.text "Run or Pass 10 yards to get a First Down" ]
-                , Html.p [] [ Html.text "Score 3 Touchdowns to Win!" ]
-                , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
-                , Html.button [ Events.onClick NewGame ] [ Html.text "hut hike" ]
-                ]
+    if loading then
+        container
+            [ Html.h2 [] [ Html.text "Rabbit vs Duck Goons MMXXIV" ]
+            , Html.button [ Events.onClick StartPlaying ] [ Html.text "play" ]
+            ]
 
-        Just (Won { timeRemaining }) ->
-            container
-                [ Html.h2 [] [ Html.text "🎉🎉🎉🎉🎉🎉" ]
-                , Html.p [] [ Html.text "You won!!" ]
-                , Html.p [] [ Html.text <| "And you did it with " ++ formatTime timeRemaining ++ " remaining!" ]
-                , Html.button [ Events.onClick NewGame ] [ Html.text "play again?" ]
-                ]
+    else
+        case howGameEnded of
+            Nothing ->
+                container
+                    [ Html.p [ css [ fontStyle italic ] ] [ Html.text "It was supposed to be a fair football game, but it looks like it's going to be you against a whoooole lotta goons." ]
+                    , Html.p [] [ Html.text "Score 3 Touchdowns to Win!" ]
+                    , Html.p [] [ Html.text "Run or Pass 10 yards to get a First Down" ]
+                    , Html.div [ css [ alignSelf center ] ]
+                        [ Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "Arrow Keys to run" ]
+                        , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "R to choose run play" ]
+                        , Html.p [ css [ alignSelf center, fontFamily monospace ] ] [ Html.text "P to choose pass play" ]
+                        ]
+                    , Html.button [ Events.onClick NewGame ] [ Html.text "hut hike" ]
+                    ]
 
-        Just (LossBySetOfDowns { score }) ->
-            let
-                text =
-                    if score == 2 then
-                        "You we're so close to 3 touchdowns..."
+            Just (Won { timeRemaining }) ->
+                container
+                    [ Html.h2 [] [ Html.text "🎉🎉🎉🎉🎉🎉" ]
+                    , Html.p [] [ Html.text "You won!!" ]
+                    , Html.p [] [ Html.text <| "And you did it with " ++ formatTime timeRemaining ++ " remaining!" ]
+                    , Html.button [ Events.onClick NewGame ] [ Html.text "play again?" ]
+                    ]
 
-                    else if score == 1 then
-                        "At least you scored once..."
+            Just (LossBySetOfDowns { score }) ->
+                let
+                    text =
+                        if score == 2 then
+                            "You we're so close to 3 touchdowns..."
 
-                    else
-                        "Next time, maybe you'll score..."
-            in
-            container
-                [ Html.h2 [] [ Html.text "OUCH!! The goons had your number!" ]
-                , Html.h2 [] [ Html.text text ]
-                , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
-                ]
+                        else if score == 1 then
+                            "At least you scored once..."
 
-        Just (LossByTimeLimit { score }) ->
-            let
-                text =
-                    if score == 2 then
-                        "You we're so close, if only you had a little more time..."
+                        else
+                            "Next time, maybe you'll score..."
+                in
+                container
+                    [ Html.h2 [] [ Html.text "OUCH!! The goons had your number!" ]
+                    , Html.h2 [] [ Html.text text ]
+                    , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
+                    ]
 
-                    else if score == 1 then
-                        "Looks like you gotta run faster..."
+            Just (LossByTimeLimit { score }) ->
+                let
+                    text =
+                        if score == 2 then
+                            "You we're so close, if only you had a little more time..."
 
-                    else
-                        "We're you even playing there... what happened?"
-            in
-            container
-                [ Html.h2 [] [ Html.text "TOO SLOW!!" ]
-                , Html.p [] [ Html.text text ]
-                , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
-                ]
+                        else if score == 1 then
+                            "Looks like you gotta run faster..."
+
+                        else
+                            "We're you even playing there... what happened?"
+                in
+                container
+                    [ Html.h2 [] [ Html.text "TOO SLOW!!" ]
+                    , Html.p [] [ Html.text text ]
+                    , Html.button [ Events.onClick NewGame ] [ Html.text "try again?" ]
+                    ]
 
 
 viewBetweenDowns : BetweenDownsModel -> Html Msg
@@ -903,8 +994,8 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                         FirstPlay ->
                             Html.flexColumn [ css [ Html.gap 16 ] ]
                                 [ Html.h2 [] [ Html.text <| "Let's go Rabbit!!" ]
-                                , Html.p [] [ Html.text <| "Run the ball (R) as fast as you can." ]
-                                , Html.p [] [ Html.text <| "Or pass (P) and chase it down." ]
+                                , Html.p [] [ Html.text <| "Run the ball as fast as you can." ]
+                                , Html.p [] [ Html.text <| "Or pass and chase it down." ]
                                 , playButtons
                                 ]
                     ]
@@ -1371,3 +1462,18 @@ subscriptions model =
         [ keyHandlerSub
         , animationSub
         ]
+
+
+type Sound
+    = Theme
+
+
+playSound : Sound -> Cmd msg
+playSound sound =
+    case sound of
+        Theme ->
+            playHowlerSound <|
+                Encode.object
+                    [ ( "src", Encode.string "./assets/theme.mp3" )
+                    , ( "looping", Encode.bool True )
+                    ]
