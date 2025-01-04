@@ -708,6 +708,19 @@ viewCountingDown ({ protagonist, tickValue } as countingDownModel) =
 
             else
                 "Hike!"
+
+        maybePassData =
+            case countingDownModel.playType of
+                PassPlay pass ->
+                    Just
+                        { startingYard = countingDownModel.startingYard
+                        , ballTarget = pass.ballTarget
+                        , caught = pass.caught
+                        , ballHangTime = pass.ballHangTime
+                        }
+
+                RunPlay ->
+                    Nothing
     in
     Html.div [ css [ position relative ] ]
         [ Html.flexColumn [ css [ Html.gap 24, alignItems center ] ]
@@ -715,9 +728,10 @@ viewCountingDown ({ protagonist, tickValue } as countingDownModel) =
                 { badGuys = countingDownModel.badGuys
                 , protagonist = protagonist
                 , tackled = Nothing
-                , maybePassData = Nothing
+                , maybePassData = maybePassData
                 , setStartingYard = countingDownModel.setStartingYard
                 , tickValue = countingDownModel.tickValue
+                , playStarted = False
                 }
             , viewScoreboard countingDownModel
             ]
@@ -915,6 +929,7 @@ viewBetweenDowns ({ howPlayEnded, footballDown, protagonist, startingYard, touch
                 , maybePassData = Nothing
                 , setStartingYard = betweenDownsModel.setStartingYard
                 , tickValue = betweenDownsModel.tickValue
+                , playStarted = False
                 }
             , viewScoreboard betweenDownsModel
             ]
@@ -946,6 +961,7 @@ viewPlayingModel playingModel =
             , setStartingYard = playingModel.setStartingYard
             , tickValue = playingModel.tickValue
             , maybePassData = maybePassData
+            , playStarted = True
             }
         , viewScoreboard playingModel
         ]
@@ -996,9 +1012,10 @@ viewField :
         , setStartingYard : Int
         , tickValue : Float
         , maybePassData : Maybe { ballTarget : Coord, ballHangTime : Float, caught : Bool, startingYard : Int }
+        , playStarted : Bool
     }
     -> Html msg
-viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePassData } =
+viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePassData, playStarted } =
     let
         triangle direction =
             Html.node "field-triangle"
@@ -1106,6 +1123,32 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                 isBadGuy =
                     BadGuys.member coord badGuys
 
+                rabbitArt =
+                    case maybePassData of
+                        Nothing ->
+                            if modBy 2 (floor (tickValue / 200)) == 0 then
+                                "./assets/rabbit-with-ball-1.svg"
+
+                            else
+                                "./assets/rabbit-with-ball-2.svg"
+
+                        Just { caught } ->
+                            if not playStarted then
+                                "./assets/rabbit-throwing.svg"
+
+                            else if caught then
+                                if modBy 2 (floor (tickValue / 200)) == 0 then
+                                    "./assets/rabbit-with-ball-1.svg"
+
+                                else
+                                    "./assets/rabbit-with-ball-2.svg"
+
+                            else if modBy 2 (floor (tickValue / 200)) == 0 then
+                                "./assets/rabbit-without-ball-1.svg"
+
+                            else
+                                "./assets/rabbit-without-ball-2.svg"
+
                 viewTarget =
                     case maybePassData of
                         Just { ballTarget, caught } ->
@@ -1126,11 +1169,7 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                                     [ Html.img
                                         [ Attrs.height (floor <| constants.gridSize * 1.2)
                                         , Attrs.width (floor <| constants.gridSize * 1.2)
-                                        , if modBy 2 (floor (tickValue / 200)) == 0 then
-                                            Attrs.src "./assets/rabbit-with-ball-1.svg"
-
-                                          else
-                                            Attrs.src "./assets/rabbit-with-ball-2.svg"
+                                        , Attrs.src rabbitArt
                                         ]
                                         []
                                     ]
@@ -1255,7 +1294,20 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                                     ]
                                 ]
                             ]
-                            [ Html.text "O" ]
+                            [ Html.img
+                                [ Attrs.height (floor <| constants.gridSize * 0.3)
+                                , Attrs.width (floor <| constants.gridSize * 0.2)
+                                , if modBy 3 (floor (tickValue / 200)) == 0 then
+                                    Attrs.src "./assets/football-1.svg"
+
+                                  else if modBy 3 (floor (tickValue / 200)) == 1 then
+                                    Attrs.src "./assets/football-2.svg"
+
+                                  else
+                                    Attrs.src "./assets/football-3.svg"
+                                ]
+                                []
+                            ]
 
                     else
                         Html.text ""
@@ -1281,7 +1333,11 @@ viewField { badGuys, protagonist, tackled, setStartingYard, tickValue, maybePass
                 []
                 (List.map viewRow rowsToShow)
             ]
-        , viewBall
+        , if playStarted then
+            viewBall
+
+          else
+            Html.text ""
         ]
 
 
