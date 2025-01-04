@@ -261,12 +261,25 @@ update msg model =
 
 handleTick : Float -> Model -> ( Model, Cmd Msg )
 handleTick delta model =
-    model
-        |> progressTime delta
-        |> moveBadGuysIfItsTime
-        |> maybeTackleProtagonist
-        |> maybeCatchBall
-        |> (\m -> ( m, Cmd.none ))
+    ( model, Cmd.none )
+        |> withCmd (progressTime delta)
+        |> noCmd moveBadGuysIfItsTime
+        |> noCmd maybeTackleProtagonist
+        |> noCmd maybeCatchBall
+
+
+withCmd : (Model -> ( Model, Cmd Msg )) -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+withCmd fn ( model, cmds ) =
+    let
+        ( newModel, addCmds ) =
+            fn model
+    in
+    ( newModel, Cmd.batch [ addCmds, cmds ] )
+
+
+noCmd : (Model -> Model) -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+noCmd fn ( model, cmds ) =
+    ( fn model, cmds )
 
 
 maybeCatchBall : Model -> Model
@@ -445,7 +458,7 @@ moveBadGuysIfItsTime model =
             model
 
 
-progressTime : Float -> Model -> Model
+progressTime : Float -> Model -> ( Model, Cmd Msg )
 progressTime delta model =
     case model of
         Playing playingModel ->
@@ -454,21 +467,25 @@ progressTime delta model =
                     playingModel.timeRemaining - delta
             in
             if newTimeRemaining < 0 then
-                Ready
+                ( Ready
                     { nextSeed = playingModel.nextSeed
                     , howGameEnded = Just (LossByTimeLimit { score = playingModel.touchdowns })
                     , soundEnabled = isSoundEnabled model
                     , loading = False
                     }
+                , Cmd.none
+                )
 
             else
-                Playing
+                ( Playing
                     { playingModel
                         | sinceLastBadGuyMove = playingModel.sinceLastBadGuyMove + delta
                         , sinceLastTackleCheck = playingModel.sinceLastTackleCheck + delta
                         , tickValue = playingModel.tickValue + delta
                         , timeRemaining = newTimeRemaining
                     }
+                , Cmd.none
+                )
 
         CountingDown countingDownModel ->
             let
@@ -476,7 +493,7 @@ progressTime delta model =
                     countingDownModel.tickValue + delta
             in
             if newTickValue > 2000 then
-                Playing
+                ( Playing
                     { badGuys = countingDownModel.badGuys
                     , protagonist = countingDownModel.protagonist
                     , playType = countingDownModel.playType
@@ -491,16 +508,20 @@ progressTime delta model =
                     , touchdowns = countingDownModel.touchdowns
                     , soundEnabled = isSoundEnabled model
                     }
+                , playSound True Whistle
+                )
 
             else
-                CountingDown { countingDownModel | tickValue = newTickValue }
+                ( CountingDown { countingDownModel | tickValue = newTickValue }, Cmd.none )
 
         BetweenDowns betweenDownsModel ->
-            BetweenDowns
+            ( BetweenDowns
                 { betweenDownsModel | tickValue = betweenDownsModel.tickValue + delta }
+            , Cmd.none
+            )
 
         _ ->
-            model
+            ( model, Cmd.none )
 
 
 handleStartPlaying : Model -> ( Model, Cmd Msg )
@@ -508,7 +529,7 @@ handleStartPlaying model =
     case model of
         Ready readyModel ->
             ( Ready { readyModel | loading = False, soundEnabled = True }
-            , playSound Theme
+            , playSound True Theme
             )
 
         _ ->
@@ -643,7 +664,7 @@ handleStartDown isRun model =
                 , playType = playType
                 , soundEnabled = isSoundEnabled model
                 }
-            , Cmd.none
+            , playSound False Theme
             )
 
         Ready readyModel ->
@@ -1466,14 +1487,22 @@ subscriptions model =
 
 type Sound
     = Theme
+    | Whistle
 
 
-playSound : Sound -> Cmd msg
-playSound sound =
+playSound : Bool -> Sound -> Cmd msg
+playSound play sound =
     case sound of
         Theme ->
             playHowlerSound <|
                 Encode.object
-                    [ ( "src", Encode.string "./assets/theme.mp3" )
-                    , ( "looping", Encode.bool True )
+                    [ ( "id", Encode.string "theme" )
+                    , ( "play", Encode.bool play )
+                    ]
+
+        Whistle ->
+            playHowlerSound <|
+                Encode.object
+                    [ ( "id", Encode.string "whistle" )
+                    , ( "play", Encode.bool play )
                     ]

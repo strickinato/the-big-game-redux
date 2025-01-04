@@ -13,13 +13,32 @@ const app = Elm.Main.init({
   flags,
 })
 
-app.ports.playHowlerSound.subscribe(msg => {
-  const sound = new Howl({
+const sounds = {
+  theme: new Howl({
     src: [require("url:./assets/theme.mp3")],
-    loop: msg.looping,
-  });
+    loop: true,
+  }),
+  whistle: new Howl({
+    src: [require("url:./assets/whistle.mp3")],
+  })
+}
 
-  sound.play();
+
+app.ports.playHowlerSound.subscribe(msg => {
+  console.log(msg.id)
+  switch (msg.id) {
+    case "theme":
+      if (msg.play) {
+        sounds.theme.play()
+      } else {
+        sounds.theme.stop()
+      }
+      break
+    case "whistle":
+      sounds.whistle.play()
+      break
+    default:
+  }
 })
 
 const windowHeight = window.innerHeight
