@@ -719,7 +719,15 @@ handleProtagonistMove moveFn model =
                     BadGuys.currentBadGuy spotToMoveTo playingModel.badGuys
 
                 scoredTouchdown =
-                    spotToMoveTo.y == 101
+                    spotToMoveTo.y
+                        == 101
+                        && (case playingModel.playType of
+                                RunPlay ->
+                                    True
+
+                                PassPlay { caught } ->
+                                    caught
+                           )
             in
             case currentlyInSpot of
                 Just _ ->
