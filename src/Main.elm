@@ -759,7 +759,7 @@ handleProtagonistMove moveFn model =
                             , howPlayEnded = Touchdown
                             , soundEnabled = isSoundEnabled model
                             }
-                        , Cmd.none
+                        , playSound False Footsteps
                         )
 
                     else
