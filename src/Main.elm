@@ -263,8 +263,8 @@ handleTick : Float -> Model -> ( Model, Cmd Msg )
 handleTick delta model =
     ( model, Cmd.none )
         |> withCmd (progressTime delta)
-        |> noCmd moveBadGuysIfItsTime
-        |> noCmd maybeTackleProtagonist
+        |> withCmd moveBadGuysIfItsTime
+        |> withCmd maybeTackleProtagonist
         |> noCmd maybeCatchBall
 
 
@@ -327,7 +327,7 @@ maybeCatchBall model =
             model
 
 
-maybeTackleProtagonist : Model -> Model
+maybeTackleProtagonist : Model -> ( Model, Cmd Msg )
 maybeTackleProtagonist model =
     case model of
         Playing playingModel ->
@@ -362,7 +362,7 @@ maybeTackleProtagonist model =
                 case maybeTackler of
                     Just tackler ->
                         if gotFirstDown then
-                            BetweenDowns
+                            ( BetweenDowns
                                 { badGuys = playingModel.badGuys
                                 , footballDown = FootballDown.first
                                 , startingYard = playingModel.startingYard
@@ -375,11 +375,13 @@ maybeTackleProtagonist model =
                                 , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                 , soundEnabled = isSoundEnabled model
                                 }
+                            , playSound False Footsteps
+                            )
 
                         else
                             case FootballDown.next playingModel.footballDown of
                                 Just nextDown ->
-                                    BetweenDowns
+                                    ( BetweenDowns
                                         { badGuys = playingModel.badGuys
                                         , footballDown = nextDown
                                         , startingYard = playingModel.startingYard
@@ -392,30 +394,36 @@ maybeTackleProtagonist model =
                                         , howPlayEnded = Tackled { coord = playingModel.protagonist, previousCoord = Tuple.first tackler }
                                         , soundEnabled = isSoundEnabled model
                                         }
+                                    , playSound False Footsteps
+                                    )
 
                                 Nothing ->
-                                    Ready
+                                    ( Ready
                                         { nextSeed = newNextSeed
                                         , howGameEnded = Just (LossBySetOfDowns { score = playingModel.touchdowns })
                                         , soundEnabled = isSoundEnabled model
                                         , loading = False
                                         }
+                                    , playSound False Footsteps
+                                    )
 
                     Nothing ->
-                        Playing
+                        ( Playing
                             { playingModel
                                 | sinceLastTackleCheck = 0
                                 , nextSeed = newNextSeed
                             }
+                        , Cmd.none
+                        )
 
             else
-                model
+                ( model, Cmd.none )
 
         _ ->
-            model
+            ( model, Cmd.none )
 
 
-moveBadGuysIfItsTime : Model -> Model
+moveBadGuysIfItsTime : Model -> ( Model, Cmd Msg )
 moveBadGuysIfItsTime model =
     case model of
         Playing playingModel ->
@@ -444,18 +452,20 @@ moveBadGuysIfItsTime model =
                                                 BadGuys.Random
                                 }
                 in
-                Playing
+                ( Playing
                     { playingModel
                         | badGuys = newBadGuyPositions
                         , sinceLastBadGuyMove = 0
                         , nextSeed = nextSeed
                     }
+                , playSound True BadGuyCrunch
+                )
 
             else
-                model
+                ( model, Cmd.none )
 
         _ ->
-            model
+            ( model, Cmd.none )
 
 
 progressTime : Float -> Model -> ( Model, Cmd Msg )
@@ -508,7 +518,10 @@ progressTime delta model =
                     , touchdowns = countingDownModel.touchdowns
                     , soundEnabled = isSoundEnabled model
                     }
-                , playSound True Whistle
+                , Cmd.batch
+                    [ playSound True Whistle
+                    , playSound True Footsteps
+                    ]
                 )
 
             else
@@ -1488,6 +1501,8 @@ subscriptions model =
 type Sound
     = Theme
     | Whistle
+    | BadGuyCrunch
+    | Footsteps
 
 
 playSound : Bool -> Sound -> Cmd msg
@@ -1504,5 +1519,19 @@ playSound play sound =
             playHowlerSound <|
                 Encode.object
                     [ ( "id", Encode.string "whistle" )
+                    , ( "play", Encode.bool play )
+                    ]
+
+        BadGuyCrunch ->
+            playHowlerSound <|
+                Encode.object
+                    [ ( "id", Encode.string "badGuyCrunch" )
+                    , ( "play", Encode.bool play )
+                    ]
+
+        Footsteps ->
+            playHowlerSound <|
+                Encode.object
+                    [ ( "id", Encode.string "footsteps" )
                     , ( "play", Encode.bool play )
                     ]

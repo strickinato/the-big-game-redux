@@ -20,7 +20,14 @@ const sounds = {
   }),
   whistle: new Howl({
     src: [require("url:./assets/whistle.mp3")],
-  })
+  }),
+  badGuyCrunch: new Howl({
+    src: [require("url:./assets/bad-guy-crunch.mp3")],
+  }),
+  footsteps: new Howl({
+    src: [require("url:./assets/footsteps.mp3")],
+    loop: true,
+  }),
 }
 
 
@@ -36,6 +43,16 @@ app.ports.playHowlerSound.subscribe(msg => {
       break
     case "whistle":
       sounds.whistle.play()
+      break
+    case "badGuyCrunch":
+      sounds.badGuyCrunch.play()
+      break
+    case "footsteps":
+      if (msg.play) {
+        sounds.footsteps.play()
+      } else {
+        sounds.footsteps.stop()
+      }
       break
     default:
   }
