@@ -28,9 +28,19 @@ generator protagonistCoord =
     -- TODO goal line stands
     let
         aboveProtagonist =
-            Random.map2 Tuple.pair
-                (Random.int 0 6)
-                (Random.int (protagonistCoord.y + 2) 99)
+            Random.int 0 6
+                |> Random.andThen
+                    (\x ->
+                        if List.member x [ 2, 3, 4 ] then
+                            Random.pair
+                                (Random.constant x)
+                                (Random.int (protagonistCoord.y + 2) 102)
+
+                        else
+                            Random.pair
+                                (Random.constant x)
+                                (Random.int (protagonistCoord.y + 1) 102)
+                    )
 
         belowProtagonist =
             Random.map2 Tuple.pair
